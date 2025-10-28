@@ -58,6 +58,14 @@
         #randomWallsBtn:hover {
             background-color: #1e7e34;
         }
+        /* Style for the new button */
+        #dynamicEnvBtn {
+            background-color: #ffc107;
+            color: #333;
+        }
+        #dynamicEnvBtn:hover {
+            background-color: #e0a800;
+        }
         canvas {
             border: 2px solid #333;
             background-color: #ffffff;
@@ -76,9 +84,10 @@
         <button id="clearPathBtn">Clear Path</button>
         <button id="clearWallsBtn">Clear Walls</button>
         <button id="randomWallsBtn">Random Walls</button>
+        <button id="dynamicEnvBtn">Start Dynamic Environment</button>
     </div>
 
-    <p><strong>Instructions:</strong> Click and drag on the grid to draw walls (obstacles).</p>
+    <p><strong>Instructions:</strong> Click and drag to draw walls, or start the dynamic environment.</p>
 
     <canvas id="pathfindingCanvas"></canvas>
 
@@ -111,19 +120,18 @@
             let endNode = null;
             let isDrawing = false;
             let isAnimating = false;
+            
+            // --- NEW ---
+            let dynamicIntervalId = null; // Stores the ID of our 2-second timer
+            // --- END NEW ---
 
             // --- 2. Node & Grid Initialization ---
 
-            /**
-             * Represents a single node in the grid
-             */
             class Node {
                 constructor(x, y) {
-                    this.x = x; // Grid x-coordinate
-                    this.y = y; // Grid y-coordinate
+                    this.x = x; 
+                    this.y = y;
                     this.isWall = false;
-                    
-                    // Dijkstra's algorithm properties
                     this.distance = Infinity;
                     this.visited = false;
                     this.previousNode = null;
@@ -143,9 +151,6 @@
                 }
             }
 
-            /**
-             * Creates the initial grid of nodes
-             */
             function initializeGrid() {
                 grid = [];
                 for (let y = 0; y < GRID_HEIGHT; y++) {
@@ -156,7 +161,6 @@
                     grid.push(row);
                 }
                 
-                // Set default start and end nodes
                 startNode = grid[Math.floor(GRID_HEIGHT / 2)][Math.floor(GRID_WIDTH / 4)];
                 endNode = grid[Math.floor(GRID_HEIGHT / 2)][Math.floor(GRID_WIDTH * 3 / 4)];
 
@@ -164,9 +168,6 @@
                 endNode.isWall = false;
             }
 
-            /**
-             * Draws the entire grid on the canvas
-             */
             function drawGrid() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 for (let y = 0; y < GRID_HEIGHT; y++) {
@@ -174,36 +175,25 @@
                         const node = grid[y][x];
                         let color = COLOR_EMPTY;
                         if (node.isWall) color = COLOR_WALL;
-
                         node.draw(color);
                     }
                 }
-                
-                // Draw start and end nodes on top
                 startNode.draw(COLOR_START);
                 endNode.draw(COLOR_END);
             }
 
             // --- 3. Dijkstra's Algorithm Logic ---
 
-            /**
-             * Finds all valid (non-wall, within-bounds) neighbors of a node
-             */
             function getNeighbors(node) {
                 const neighbors = [];
                 const { x, y } = node;
-
-                if (y > 0) neighbors.push(grid[y - 1][x]); // Up
-                if (y < GRID_HEIGHT - 1) neighbors.push(grid[y + 1][x]); // Down
-                if (x > 0) neighbors.push(grid[y][x - 1]); // Left
-                if (x < GRID_WIDTH - 1) neighbors.push(grid[y][x + 1]); // Right
-
+                if (y > 0) neighbors.push(grid[y - 1][x]); 
+                if (y < GRID_HEIGHT - 1) neighbors.push(grid[y + 1][x]);
+                if (x > 0) neighbors.push(grid[y][x - 1]);
+                if (x < GRID_WIDTH - 1) neighbors.push(grid[y][x + 1]);
                 return neighbors.filter(neighbor => !neighbor.isWall);
             }
 
-            /**
-             * Runs the Dijkstra's algorithm
-             */
             function dijkstra() {
                 clearPath();
                 toggleButtons(false);
@@ -219,12 +209,9 @@
                         return;
                     }
                     
-                    // Sort nodes by distance (simulating a priority queue)
                     unvisitedNodes.sort((a, b) => a.distance - b.distance);
-                    
                     const currentNode = unvisitedNodes.shift();
 
-                    // If closest node is Infinity, we are trapped
                     if (currentNode.distance === Infinity) {
                         animateSearch(visitedNodesInOrder);
                         return;
@@ -233,7 +220,6 @@
                     currentNode.visited = true;
                     visitedNodesInOrder.push(currentNode);
 
-                    // We found the end!
                     if (currentNode === endNode) {
                         animateSearch(visitedNodesInOrder);
                         return;
@@ -242,19 +228,14 @@
                     const neighbors = getNeighbors(currentNode);
                     for (const neighbor of neighbors) {
                         if (neighbor.visited) continue;
-
-                        const newDistance = currentNode.distance + 1; // Assuming cost is 1
+                        const newDistance = currentNode.distance + 1;
                         if (newDistance < neighbor.distance) {
                             neighbor.distance = newDistance;
                             neighbor.previousNode = currentNode;
                         }
                     }
-                    
-                    // Continue the algorithm in the next "frame"
                     requestAnimationFrame(algorithmStep);
                 }
-                
-                // Start the algorithm
                 requestAnimationFrame(algorithmStep);
             }
 
@@ -278,20 +259,17 @@
                         animateFinalPath();
                         return;
                     }
-
                     const node = visitedNodes[i];
                     if (node !== startNode && node !== endNode) {
                         node.draw(COLOR_VISITED);
                     }
                     i++;
-                }, 10); // Animation speed (ms)
+                }, 10);
             }
 
             function animateFinalPath() {
                 const path = [];
                 let currentNode = endNode;
-                
-                // Backtrack from end to start
                 while (currentNode !== null) {
                     path.push(currentNode);
                     currentNode = currentNode.previousNode;
@@ -302,27 +280,47 @@
                 const interval = setInterval(() => {
                     if (i === path.length) {
                         clearInterval(interval);
-                        toggleButtons(true);
+                        
+                        // --- MODIFIED ---
+                        // Only re-enable all buttons if the dynamic env is OFF
+                        if (dynamicIntervalId === null) {
+                            toggleButtons(true);
+                        } else {
+                            // Otherwise, just re-enable the "Stop" and "Clear Path"
+                            document.getElementById('dynamicEnvBtn').disabled = false;
+                            document.getElementById('clearPathBtn').disabled = false;
+                        }
+                        // --- END MODIFIED ---
+                        
                         isAnimating = false;
                         return;
                     }
-
                     const node = path[i];
                     if (node !== startNode && node !== endNode) {
                         node.draw(COLOR_PATH);
                     }
                     i++;
-                }, 40); // Path drawing speed (ms)
+                }, 40);
             }
             
             // --- 5. Control Button Functions ---
             
+            // --- MODIFIED ---
             function toggleButtons(enabled) {
                 document.getElementById('findPathBtn').disabled = !enabled;
                 document.getElementById('clearPathBtn').disabled = !enabled;
                 document.getElementById('clearWallsBtn').disabled = !enabled;
                 document.getElementById('randomWallsBtn').disabled = !enabled;
+
+                // The dynamic button is an exception.
+                // If the dynamic env is running, it should *always* be enabled
+                if (dynamicIntervalId === null) {
+                    document.getElementById('dynamicEnvBtn').disabled = !enabled;
+                } else {
+                    document.getElementById('dynamicEnvBtn').disabled = false;
+                }
             }
+            // --- END MODIFIED ---
 
             function clearGrid() {
                 if (isAnimating) return;
@@ -353,7 +351,7 @@
                     for (let x = 0; x < GRID_WIDTH; x++) {
                         const node = grid[y][x];
                         if (node !== startNode && node !== endNode) {
-                            if (Math.random() < 0.3) { // 30% chance of being a wall
+                            if (Math.random() < 0.3) { // 30% chance
                                 node.isWall = true;
                             }
                         }
@@ -361,6 +359,57 @@
                 }
                 drawGrid();
             }
+            
+            // --- NEW DYNAMIC ENVIRONMENT FUNCTIONS ---
+            
+            /**
+             * This function is called every 2 seconds by the timer.
+             */
+            function runDynamicStep() {
+                // Don't run if an animation is already in progress
+                // It will just wait for the next 2-second cycle
+                if (isAnimating) return; 
+                
+                // 1. Generate new walls
+                generateRandomWalls(); 
+                
+                // 2. Find a new path
+                // We add a small delay so the user can see the new walls
+                // before the search animation starts.
+                setTimeout(() => {
+                    if (!isAnimating) {
+                       dijkstra();
+                    }
+                }, 100); 
+            }
+
+            /**
+             * Starts or stops the 2-second timer.
+             */
+            function toggleDynamicEnvironment() {
+                const btn = document.getElementById('dynamicEnvBtn');
+                if (dynamicIntervalId) {
+                    // It's ON - turn it OFF
+                    clearInterval(dynamicIntervalId);
+                    dynamicIntervalId = null;
+                    btn.textContent = 'Start Dynamic Environment';
+                    btn.style.backgroundColor = '#ffc107'; // Reset color
+                    toggleButtons(true); // Re-enable all other buttons
+                } else {
+                    // It's OFF - turn it ON
+                    
+                    // Disable other manual controls
+                    document.getElementById('findPathBtn').disabled = true;
+                    document.getElementById('clearWallsBtn').disabled = true;
+                    document.getElementById('randomWallsBtn').disabled = true;
+                    btn.textContent = 'Stop Dynamic Environment';
+                    btn.style.backgroundColor = '#fd7e14'; // "Stop" color
+
+                    runDynamicStep(); // Run the first step immediately
+                    dynamicIntervalId = setInterval(runDynamicStep, 2000); // Run every 2 sec
+                }
+            }
+            // --- END NEW ---
 
             // --- 6. Event Listeners ---
 
@@ -373,7 +422,7 @@
             }
 
             function handleMouseInteraction(evt) {
-                if (isAnimating) return;
+                if (isAnimating || dynamicIntervalId) return; // Don't draw if dynamic
                 const { x, y } = getMousePos(evt);
                 const col = Math.floor(x / CELL_SIZE);
                 const row = Math.floor(y / CELL_SIZE);
@@ -388,13 +437,13 @@
             }
 
             canvas.addEventListener('mousedown', (e) => {
-                if (isAnimating) return;
+                if (isAnimating || dynamicIntervalId) return;
                 isDrawing = true;
                 handleMouseInteraction(e);
             });
 
             canvas.addEventListener('mousemove', (e) => {
-                if (!isDrawing || isAnimating) return;
+                if (!isDrawing || isAnimating || dynamicIntervalId) return;
                 handleMouseInteraction(e);
             });
 
@@ -411,6 +460,10 @@
             document.getElementById('clearWallsBtn').addEventListener('click', clearGrid);
             document.getElementById('clearPathBtn').addEventListener('click', clearPath);
             document.getElementById('randomWallsBtn').addEventListener('click', generateRandomWalls);
+            
+            // --- NEW ---
+            document.getElementById('dynamicEnvBtn').addEventListener('click', toggleDynamicEnvironment);
+            // --- END NEW ---
 
             // --- 7. Initial Run ---
             
