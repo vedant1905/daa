@@ -82,7 +82,7 @@
     <p>
         <strong>Instructions:</strong>
         1. Click and drag to draw walls (obstacles).
-        2. Click "Find Path". The path will be blocked automatically.
+        2. Click "Find Path". The path will be blocked automatically (once).
         3. <strong>Click on the yellow path</strong> to add more blockades and force re-routes.
     </p>
 
@@ -118,6 +118,10 @@
             let isAnimating = false;
             
             let currentPath = []; 
+            
+            // --- NEW FLAG ---
+            let hasDynamicObstacleBeenAdded = false;
+            // --- END NEW FLAG ---
 
             // --- 2. Node & Grid Initialization ---
 
@@ -188,7 +192,7 @@
             }
 
             function dijkstra() {
-                clearPath(); // Clear previous path visuals and reset nodes
+                clearPath(); 
                 toggleButtons(false);
                 isAnimating = true;
 
@@ -269,7 +273,7 @@
                 }
                 path.reverse();
                 
-                currentPath = path; // Store the found path
+                currentPath = path; 
 
                 let i = 0;
                 const interval = setInterval(() => {
@@ -280,8 +284,9 @@
                         return;
                     }
 
-                    // --- DYNAMIC OBSTACLE ---
-                    if (i === Math.floor(path.length / 2)) {
+                    // --- MODIFIED DYNAMIC OBSTACLE ---
+                    // Only run this code if the flag is false
+                    if (!hasDynamicObstacleBeenAdded && i === Math.floor(path.length / 2)) {
                         const obstacleNode = path[i + 1]; 
 
                         if (obstacleNode && obstacleNode !== endNode) {
@@ -291,13 +296,17 @@
                             obstacleNode.isWall = true; 
                             obstacleNode.draw(COLOR_WALL); 
                             
+                            // --- SET THE FLAG ---
+                            hasDynamicObstacleBeenAdded = true; 
+                            // --- END SET THE FLAG ---
+                            
                             currentPath = []; 
                             
                             dijkstra(); 
                             return; 
                         }
                     }
-                    // --- END DYNAMIC OBSTACLE ---
+                    // --- END MODIFIED DYNAMIC OBSTACLE ---
 
                     const node = path[i];
                     if (node !== startNode && node !== endNode) {
@@ -316,10 +325,11 @@
                 document.getElementById('randomWallsBtn').disabled = !enabled;
             }
 
-            // --- MODIFIED ---
             function clearGrid() {
-                // if (isAnimating) return; // <-- REMOVED CHECK
                 currentPath = []; 
+                // --- RESET FLAG ---
+                hasDynamicObstacleBeenAdded = false; 
+                // --- END RESET ---
                 for (let y = 0; y < GRID_HEIGHT; y++) {
                     for (let x = 0; x < GRID_WIDTH; x++) {
                         const node = grid[y][x];
@@ -330,10 +340,11 @@
                 drawGrid();
             }
 
-            // --- MODIFIED ---
             function clearPath() {
-                // if (isAnimating) return; // <-- REMOVED CHECK
                 currentPath = []; 
+                // --- RESET FLAG ---
+                hasDynamicObstacleBeenAdded = false; 
+                // --- END RESET ---
                 for (let y = 0; y < GRID_HEIGHT; y++) {
                     for (let x = 0; x < GRID_WIDTH; x++) {
                         grid[y][x].reset();
@@ -342,10 +353,8 @@
                 drawGrid();
             }
 
-            // --- MODIFIED ---
             function generateRandomWalls() {
-                // if (isAnimating) return; // <-- REMOVED CHECK
-                clearGrid(); 
+                clearGrid(); // clearGrid() now resets the flag for us
                 for (let y = 0; y < GRID_HEIGHT; y++) {
                     for (let x = 0; x < GRID_WIDTH; x++) {
                         const node = grid[y][x];
@@ -398,6 +407,7 @@
                 if (currentPath.includes(clickedNode) && clickedNode !== startNode && clickedNode !== endNode) {
                     clickedNode.isWall = true;
                     currentPath = [];
+                    hasDynamicObstacleBeenAdded = true; // Manually adding a wall counts
                     dijkstra(); 
                 } 
                 else if (currentPath.length === 0) {
@@ -419,13 +429,13 @@
                 isAnimating = false;
             });
 
-            // --- MODIFIED Button listeners (checks added here) ---
             document.getElementById('findPathBtn').addEventListener('click', dijkstra);
             
             document.getElementById('clearWallsBtn').addEventListener('click', () => {
                 if (isAnimating) return;
                 clearGrid();
             });
+Next, you'll need to create the main application file (e.g., `app.py`)
             
             document.getElementById('clearPathBtn').addEventListener('click', () => {
                 if (isAnimating) return;
