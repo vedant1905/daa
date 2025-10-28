@@ -117,7 +117,7 @@
             let isDrawing = false;
             let isAnimating = false;
             
-            let currentPath = []; // Stores the nodes of the currently displayed path
+            let currentPath = []; 
 
             // --- 2. Node & Grid Initialization ---
 
@@ -272,7 +272,6 @@
                 currentPath = path; // Store the found path
 
                 let i = 0;
-                // --- This interval is modified ---
                 const interval = setInterval(() => {
                     if (i === path.length) {
                         clearInterval(interval);
@@ -281,27 +280,24 @@
                         return;
                     }
 
-                    // --- NEW DYNAMIC OBSTACLE ---
-                    // This simulates a "sudden" obstacle appearing in front of the "car"
-                    // We check when the path animation is halfway
+                    // --- DYNAMIC OBSTACLE ---
                     if (i === Math.floor(path.length / 2)) {
-                        const obstacleNode = path[i + 1]; // Get the node *in front*
+                        const obstacleNode = path[i + 1]; 
 
-                        // Make sure we're not blocking the end node
                         if (obstacleNode && obstacleNode !== endNode) {
                             console.log("Sudden obstacle detected! Re-routing...");
-                            clearInterval(interval); // Stop this animation
+                            clearInterval(interval); 
 
-                            obstacleNode.isWall = true; // Create the wall
-                            obstacleNode.draw(COLOR_WALL); // Draw it immediately
+                            obstacleNode.isWall = true; 
+                            obstacleNode.draw(COLOR_WALL); 
                             
-                            currentPath = []; // Invalidate the old path
+                            currentPath = []; 
                             
-                            dijkstra(); // Re-run the pathfinding to find a new route
-                            return; // Exit this interval callback
+                            dijkstra(); 
+                            return; 
                         }
                     }
-                    // --- END NEW DYNAMIC OBSTACLE ---
+                    // --- END DYNAMIC OBSTACLE ---
 
                     const node = path[i];
                     if (node !== startNode && node !== endNode) {
@@ -320,8 +316,9 @@
                 document.getElementById('randomWallsBtn').disabled = !enabled;
             }
 
+            // --- MODIFIED ---
             function clearGrid() {
-                if (isAnimating) return;
+                // if (isAnimating) return; // <-- REMOVED CHECK
                 currentPath = []; 
                 for (let y = 0; y < GRID_HEIGHT; y++) {
                     for (let x = 0; x < GRID_WIDTH; x++) {
@@ -333,8 +330,9 @@
                 drawGrid();
             }
 
+            // --- MODIFIED ---
             function clearPath() {
-                if (isAnimating) return;
+                // if (isAnimating) return; // <-- REMOVED CHECK
                 currentPath = []; 
                 for (let y = 0; y < GRID_HEIGHT; y++) {
                     for (let x = 0; x < GRID_WIDTH; x++) {
@@ -344,9 +342,10 @@
                 drawGrid();
             }
 
+            // --- MODIFIED ---
             function generateRandomWalls() {
-                if (isAnimating) return;
-                clearGrid(); // clearGrid already sets currentPath = []
+                // if (isAnimating) return; // <-- REMOVED CHECK
+                clearGrid(); 
                 for (let y = 0; y < GRID_HEIGHT; y++) {
                     for (let x = 0; x < GRID_WIDTH; x++) {
                         const node = grid[y][x];
@@ -370,12 +369,7 @@
                 };
             }
 
-            /**
-             * This function only handles drawing new walls
-             */
             function handleWallDrawing(evt) {
-                // Don't allow drawing if a path is already found.
-                // User must clear the path first.
                 if (isAnimating || currentPath.length > 0) return; 
                 
                 const { x, y } = getMousePos(evt);
@@ -391,7 +385,6 @@
                 }
             }
 
-            // --- MODIFIED Mouse Down Listener ---
             canvas.addEventListener('mousedown', (e) => {
                 if (isAnimating) return;
 
@@ -402,27 +395,18 @@
                 
                 const clickedNode = grid[row][col];
 
-                // --- NEW LOGIC ---
-                // Check if user clicked on an existing path
                 if (currentPath.includes(clickedNode) && clickedNode !== startNode && clickedNode !== endNode) {
-                    // This is the "construction" blockade
                     clickedNode.isWall = true;
-                    currentPath = []; // Invalidate the old path
-                    
-                    // Re-run the pathfinding
+                    currentPath = [];
                     dijkstra(); 
                 } 
-                // --- EXISTING LOGIC ---
-                // User is drawing new walls (only if no path exists)
                 else if (currentPath.length === 0) {
                     isDrawing = true;
                     handleWallDrawing(e);
                 }
             });
 
-            // --- MODIFIED Mouse Move Listener ---
             canvas.addEventListener('mousemove', (e) => {
-                // Only draw walls if drawing is enabled AND no path exists
                 if (!isDrawing || isAnimating || currentPath.length > 0) return;
                 handleWallDrawing(e);
             });
@@ -432,14 +416,26 @@
             });
             
             canvas.addEventListener('mouseleave', () => {
-                isDrawing = false;
+                isAnimating = false;
             });
 
-            // Button listeners
+            // --- MODIFIED Button listeners (checks added here) ---
             document.getElementById('findPathBtn').addEventListener('click', dijkstra);
-            document.getElementById('clearWallsBtn').addEventListener('click', clearGrid);
-            document.getElementById('clearPathBtn').addEventListener('click', clearPath);
-            document.getElementById('randomWallsBtn').addEventListener('click', generateRandomWalls);
+            
+            document.getElementById('clearWallsBtn').addEventListener('click', () => {
+                if (isAnimating) return;
+                clearGrid();
+            });
+            
+            document.getElementById('clearPathBtn').addEventListener('click', () => {
+                if (isAnimating) return;
+                clearPath();
+            });
+            
+            document.getElementById('randomWallsBtn').addEventListener('click', () => {
+                if (isAnimating) return;
+                generateRandomWalls();
+            });
             
             // --- 7. Initial Run ---
             
