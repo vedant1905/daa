@@ -53,12 +53,14 @@
         #clearWallsBtn:hover {
             background-color: #a71d2a;
         }
-        #randomWallsBtn {
+        /* --- MODIFIED --- */
+        #generateMazeBtn {
             background-color: #28a745;
         }
-        #randomWallsBtn:hover {
+        #generateMazeBtn:hover {
             background-color: #1e7e34;
         }
+        /* --- END MODIFIED --- */
         canvas {
             border: 2px solid #333;
             background-color: #ffffff;
@@ -76,13 +78,13 @@
         <button id="findPathBtn">Find Path (Dijkstra)</button>
         <button id="clearPathBtn">Clear Path</button>
         <button id="clearWallsBtn">Clear Walls</button>
-        <button id="randomWallsBtn">Random Walls</button>
-    </div>
+        <button id="generateMazeBtn">Generate Maze</button>
+        </div>
 
     <p>
         <strong>Instructions:</strong>
-        1. Click and drag to draw walls (obstacles).
-        2. Click "Find Path".
+        1. Click "Generate Maze" to create a new maze.
+        2. Click "Find Path" to solve it.
         3. <strong>Click on the yellow path</strong> to add a "construction" blockade and force a re-route.
     </p>
 
@@ -116,10 +118,7 @@
             let endNode = null;
             let isDrawing = false;
             let isAnimating = false;
-            
-            // --- NEW ---
-            let currentPath = []; // Stores the nodes of the currently displayed path
-            // --- END NEW ---
+            let currentPath = [];
 
             // --- 2. Node & Grid Initialization ---
 
@@ -190,7 +189,7 @@
             }
 
             function dijkstra() {
-                clearPath(); // Clear previous path visuals and reset nodes
+                clearPath(); 
                 toggleButtons(false);
                 isAnimating = true;
 
@@ -270,10 +269,7 @@
                     currentNode = currentNode.previousNode;
                 }
                 path.reverse();
-                
-                // --- MODIFIED ---
-                currentPath = path; // Store the found path
-                // --- END MODIFIED ---
+                currentPath = path;
 
                 let i = 0;
                 const interval = setInterval(() => {
@@ -297,12 +293,12 @@
                 document.getElementById('findPathBtn').disabled = !enabled;
                 document.getElementById('clearPathBtn').disabled = !enabled;
                 document.getElementById('clearWallsBtn').disabled = !enabled;
-                document.getElementById('randomWallsBtn').disabled = !enabled;
+                document.getElementById('generateMazeBtn').disabled = !enabled;
             }
 
             function clearGrid() {
                 if (isAnimating) return;
-                currentPath = []; // --- NEW ---
+                currentPath = []; 
                 for (let y = 0; y < GRID_HEIGHT; y++) {
                     for (let x = 0; x < GRID_WIDTH; x++) {
                         const node = grid[y][x];
@@ -315,7 +311,7 @@
 
             function clearPath() {
                 if (isAnimating) return;
-                currentPath = []; // --- NEW ---
+                currentPath = []; 
                 for (let y = 0; y < GRID_HEIGHT; y++) {
                     for (let x = 0; x < GRID_WIDTH; x++) {
                         grid[y][x].reset();
@@ -324,21 +320,90 @@
                 drawGrid();
             }
 
-            function generateRandomWalls() {
+            // --- NEW MAZE GENERATOR ---
+            function generateMaze() {
                 if (isAnimating) return;
-                clearGrid(); // clearGrid already sets currentPath = []
+            
+                // 1. Start with a grid full of walls
+                clearGrid(); // Resets path, etc.
                 for (let y = 0; y < GRID_HEIGHT; y++) {
                     for (let x = 0; x < GRID_WIDTH; x++) {
-                        const node = grid[y][x];
-                        if (node !== startNode && node !== endNode) {
-                            if (Math.random() < 0.3) { // 30% chance
-                                node.isWall = true;
-                            }
-                        }
+                        grid[y][x].isWall = true;
                     }
                 }
+            
+                // 2. Set up for maze generation
+                const stack = [];
+                // A separate visited array for maze generation
+                const visitedMaze = Array(GRID_HEIGHT).fill(false).map(() => Array(GRID_WIDTH).fill(false));
+            
+                // 3. Start carving from cell (0, 0)
+                let startX = 0; 
+                let startY = 0;
+                // Ensure we start on an even coordinate if possible, or 0,0
+                if (startX % 2 !== 0) startX++;
+                if (startY % 2 !== 0) startY++;
+                
+                // Handle edge case where grid is too small
+                if (startX >= GRID_WIDTH) startX = 0;
+                if (startY >= GRID_HEIGHT) startY = 0;
+
+                let startCell = grid[startY][startX];
+                startCell.isWall = false; // This is a passage
+                visitedMaze[startY][startX] = true;
+                stack.push(startCell);
+            
+                while (stack.length > 0) {
+                    const current = stack[stack.length - 1]; // Peek at the top
+                    const neighbors = [];
+            
+                    const { x, y } = current;
+            
+                    // Check neighbors 2 steps away
+                    // Up
+                    if (y > 1 && !visitedMaze[y - 2][x]) {
+                        neighbors.push(grid[y - 2][x]);
+                    }
+                    // Down
+                    if (y < GRID_HEIGHT - 2 && !visitedMaze[y + 2][x]) {
+                        neighbors.push(grid[y + 2][x]);
+                    }
+                    // Left
+                    if (x > 1 && !visitedMaze[y][x - 2]) {
+                        neighbors.push(grid[y][x - 2]);
+                    }
+                    // Right
+                    if (x < GRID_WIDTH - 2 && !visitedMaze[y][x + 2]) {
+                        neighbors.push(grid[y][x + 2]);
+                    }
+            
+                    if (neighbors.length > 0) {
+                        // Pick a random neighbor
+                        const chosen = neighbors[Math.floor(Math.random() * neighbors.length)];
+                        
+                        // Carve wall between current and chosen
+                        const wallX = (chosen.x + current.x) / 2;
+                        const wallY = (chosen.y + current.y) / 2;
+                        grid[wallY][wallX].isWall = false;
+            
+                        // Move to chosen cell
+                        chosen.isWall = false;
+                        visitedMaze[chosen.y][chosen.x] = true;
+                        stack.push(chosen);
+                    } else {
+                        // No unvisited neighbors, backtrack
+                        stack.pop();
+                    }
+                }
+            
+                // 4. Ensure start and end nodes are not walls
+                startNode.isWall = false;
+                endNode.isWall = false;
+            
+                // 5. Redraw the grid with the new maze
                 drawGrid();
             }
+            // --- END NEW MAZE GENERATOR ---
             
 
             // --- 6. Event Listeners ---
@@ -351,12 +416,7 @@
                 };
             }
 
-            /**
-             * This function only handles drawing new walls
-             */
             function handleWallDrawing(evt) {
-                // Don't allow drawing if a path is already found.
-                // User must clear the path first.
                 if (isAnimating || currentPath.length > 0) return; 
                 
                 const { x, y } = getMousePos(evt);
@@ -372,7 +432,6 @@
                 }
             }
 
-            // --- MODIFIED Mouse Down Listener ---
             canvas.addEventListener('mousedown', (e) => {
                 if (isAnimating) return;
 
@@ -383,27 +442,18 @@
                 
                 const clickedNode = grid[row][col];
 
-                // --- NEW LOGIC ---
-                // Check if user clicked on an existing path
                 if (currentPath.includes(clickedNode) && clickedNode !== startNode && clickedNode !== endNode) {
-                    // This is the "construction" blockade
                     clickedNode.isWall = true;
-                    currentPath = []; // Invalidate the old path
-                    
-                    // Re-run the pathfinding
+                    currentPath = []; 
                     dijkstra(); 
                 } 
-                // --- EXISTING LOGIC ---
-                // User is drawing new walls (only if no path exists)
                 else if (currentPath.length === 0) {
                     isDrawing = true;
                     handleWallDrawing(e);
                 }
             });
 
-            // --- MODIFIED Mouse Move Listener ---
             canvas.addEventListener('mousemove', (e) => {
-                // Only draw walls if drawing is enabled AND no path exists
                 if (!isDrawing || isAnimating || currentPath.length > 0) return;
                 handleWallDrawing(e);
             });
@@ -420,7 +470,9 @@
             document.getElementById('findPathBtn').addEventListener('click', dijkstra);
             document.getElementById('clearWallsBtn').addEventListener('click', clearGrid);
             document.getElementById('clearPathBtn').addEventListener('click', clearPath);
-            document.getElementById('randomWallsBtn').addEventListener('click', generateRandomWalls);
+            // --- MODIFIED ---
+            document.getElementById('generateMazeBtn').addEventListener('click', generateMaze);
+            // --- END MODIFIED ---
             
             // --- 7. Initial Run ---
             
