@@ -28,6 +28,9 @@
         }
         .controls {
             margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
         }
         button {
             background-color: #007bff;
@@ -39,6 +42,7 @@
             font-size: 16px;
             cursor: pointer;
             transition: background-color 0.3s ease;
+            border: 2px solid transparent; /* For active state */
         }
         button:hover {
             background-color: #0056b3;
@@ -47,6 +51,25 @@
             background-color: #aaa;
             cursor: not-allowed;
         }
+        /* --- NEW BUTTON STYLES --- */
+        #setStartBtn {
+            background-color: #00e676;
+            color: #333;
+        }
+        #setStartBtn:hover {
+            background-color: #00b35c;
+        }
+        #setEndBtn {
+            background-color: #ff3d00;
+        }
+        #setEndBtn:hover {
+            background-color: #c32f00;
+        }
+        button.active {
+            box-shadow: 0 0 10px 3px #007bff;
+            border-color: #fff;
+        }
+        /* --- END NEW STYLES --- */
         #clearWallsBtn {
             background-color: #dc3545;
         }
@@ -74,6 +97,8 @@
 
     <div class="controls">
         <button id="findPathBtn">Find Path (Dijkstra)</button>
+        <button id="setStartBtn">Set Start</button>
+        <button id="setEndBtn">Set End</button>
         <button id="clearPathBtn">Clear Path</button>
         <button id="clearWallsBtn">Clear Walls</button>
         <button id="randomWallsBtn">Random Walls</button>
@@ -81,9 +106,10 @@
 
     <p>
         <strong>Instructions:</strong>
-        1. Click and drag to draw walls (obstacles).
-        2. Click "Find Path". The path will be blocked automatically (once).
-        3. <strong>Click on the yellow path</strong> to add more blockades and force re-routes.
+        1. Click "Set Start" or "Set End", then click on the grid to place them.
+        2. Click and drag to draw walls (obstacles).
+        3. Click "Find Path". The path will be blocked automatically (once).
+        4. <strong>Click on the yellow path</strong> to add more blockades and force re-routes.
     </p>
 
     <canvas id="pathfindingCanvas"></canvas>
@@ -118,10 +144,13 @@
             let isAnimating = false;
             
             let currentPath = []; 
-            
-            // --- NEW FLAG ---
             let hasDynamicObstacleBeenAdded = false;
-            // --- END NEW FLAG ---
+            
+            // --- NEW STATE VARIABLE ---
+            let placementMode = null; // null, 'start', or 'end'
+            const setStartBtn = document.getElementById('setStartBtn');
+            const setEndBtn = document.getElementById('setEndBtn');
+            // --- END NEW ---
 
             // --- 2. Node & Grid Initialization ---
 
@@ -192,6 +221,12 @@
             }
 
             function dijkstra() {
+                // --- MODIFIED ---
+                setStartBtn.classList.remove('active');
+                setEndBtn.classList.remove('active');
+                placementMode = null;
+                // --- END MODIFIED ---
+                
                 clearPath(); 
                 toggleButtons(false);
                 isAnimating = true;
@@ -284,8 +319,6 @@
                         return;
                     }
 
-                    // --- MODIFIED DYNAMIC OBSTACLE ---
-                    // Only run this code if the flag is false
                     if (!hasDynamicObstacleBeenAdded && i === Math.floor(path.length / 2)) {
                         const obstacleNode = path[i + 1]; 
 
@@ -296,9 +329,7 @@
                             obstacleNode.isWall = true; 
                             obstacleNode.draw(COLOR_WALL); 
                             
-                            // --- SET THE FLAG ---
                             hasDynamicObstacleBeenAdded = true; 
-                            // --- END SET THE FLAG ---
                             
                             currentPath = []; 
                             
@@ -306,7 +337,6 @@
                             return; 
                         }
                     }
-                    // --- END MODIFIED DYNAMIC OBSTACLE ---
 
                     const node = path[i];
                     if (node !== startNode && node !== endNode) {
@@ -323,13 +353,20 @@
                 document.getElementById('clearPathBtn').disabled = !enabled;
                 document.getElementById('clearWallsBtn').disabled = !enabled;
                 document.getElementById('randomWallsBtn').disabled = !enabled;
+                // --- MODIFIED ---
+                document.getElementById('setStartBtn').disabled = !enabled;
+                document.getElementById('setEndBtn').disabled = !enabled;
+                // --- END MODIFIED ---
             }
 
             function clearGrid() {
                 currentPath = []; 
-                // --- RESET FLAG ---
                 hasDynamicObstacleBeenAdded = false; 
-                // --- END RESET ---
+                // --- MODIFIED ---
+                placementMode = null;
+                setStartBtn.classList.remove('active');
+                setEndBtn.classList.remove('active');
+                // --- END MODIFIED ---
                 for (let y = 0; y < GRID_HEIGHT; y++) {
                     for (let x = 0; x < GRID_WIDTH; x++) {
                         const node = grid[y][x];
@@ -342,9 +379,12 @@
 
             function clearPath() {
                 currentPath = []; 
-                // --- RESET FLAG ---
                 hasDynamicObstacleBeenAdded = false; 
-                // --- END RESET ---
+                // --- MODIFIED ---
+                placementMode = null;
+                setStartBtn.classList.remove('active');
+                setEndBtn.classList.remove('active');
+                // --- END MODIFIED ---
                 for (let y = 0; y < GRID_HEIGHT; y++) {
                     for (let x = 0; x < GRID_WIDTH; x++) {
                         grid[y][x].reset();
@@ -354,7 +394,7 @@
             }
 
             function generateRandomWalls() {
-                clearGrid(); // clearGrid() now resets the flag for us
+                clearGrid(); 
                 for (let y = 0; y < GRID_HEIGHT; y++) {
                     for (let x = 0; x < GRID_WIDTH; x++) {
                         const node = grid[y][x];
@@ -379,7 +419,8 @@
             }
 
             function handleWallDrawing(evt) {
-                if (isAnimating || currentPath.length > 0) return; 
+                // MODIFIED: Check placementMode
+                if (isAnimating || currentPath.length > 0 || placementMode !== null) return; 
                 
                 const { x, y } = getMousePos(evt);
                 const col = Math.floor(x / CELL_SIZE);
@@ -394,6 +435,7 @@
                 }
             }
 
+            // --- HEAVILY MODIFIED Mousedown Listener ---
             canvas.addEventListener('mousedown', (e) => {
                 if (isAnimating) return;
 
@@ -404,20 +446,56 @@
                 
                 const clickedNode = grid[row][col];
 
+                // --- NEW PLACEMENT LOGIC ---
+                if (placementMode === 'start') {
+                    if (clickedNode === endNode || clickedNode.isWall) return; 
+                    
+                    if (startNode) startNode.draw(COLOR_EMPTY); // Redraw old start as empty
+                    
+                    startNode = clickedNode;
+                    startNode.draw(COLOR_START);
+                    
+                    placementMode = null; 
+                    setStartBtn.classList.remove('active');
+                    
+                    if (currentPath.length > 0) clearPath(); // Clear old path
+                    return; 
+                }
+
+                if (placementMode === 'end') {
+                    if (clickedNode === startNode || clickedNode.isWall) return; 
+                    
+                    if (endNode) endNode.draw(COLOR_EMPTY); // Redraw old end as empty
+                    
+                    endNode = clickedNode;
+                    endNode.draw(COLOR_END);
+                    
+                    placementMode = null; 
+                    setEndBtn.classList.remove('active');
+
+                    if (currentPath.length > 0) clearPath(); // Clear old path
+                    return; 
+                }
+                // --- END NEW PLACEMENT LOGIC ---
+
+                // Click on existing path
                 if (currentPath.includes(clickedNode) && clickedNode !== startNode && clickedNode !== endNode) {
                     clickedNode.isWall = true;
                     currentPath = [];
-                    hasDynamicObstacleBeenAdded = true; // Manually adding a wall counts
+                    hasDynamicObstacleBeenAdded = true; 
                     dijkstra(); 
                 } 
-                else if (currentPath.length === 0) {
+                // Draw new walls
+                else if (currentPath.length === 0 && placementMode === null) {
                     isDrawing = true;
                     handleWallDrawing(e);
                 }
             });
 
+            // --- MODIFIED Mousemove Listener ---
             canvas.addEventListener('mousemove', (e) => {
-                if (!isDrawing || isAnimating || currentPath.length > 0) return;
+                // Check placementMode
+                if (!isDrawing || isAnimating || currentPath.length > 0 || placementMode !== null) return;
                 handleWallDrawing(e);
             });
 
@@ -426,16 +504,19 @@
             });
             
             canvas.addEventListener('mouseleave', () => {
-                isAnimating = false;
+                isDrawing = false;
             });
 
-            document.getElementById('findPathBtn').addEventListener('click', dijkstra);
+            // Button listeners
+            document.getElementById('findPathBtn').addEventListener('click', () => {
+                if (isAnimating) return;
+                dijkstra();
+            });
             
             document.getElementById('clearWallsBtn').addEventListener('click', () => {
                 if (isAnimating) return;
                 clearGrid();
             });
-Next, you'll need to create the main application file (e.g., `app.py`)
             
             document.getElementById('clearPathBtn').addEventListener('click', () => {
                 if (isAnimating) return;
@@ -446,6 +527,22 @@ Next, you'll need to create the main application file (e.g., `app.py`)
                 if (isAnimating) return;
                 generateRandomWalls();
             });
+
+            // --- NEW BUTTON LISTENERS ---
+            setStartBtn.addEventListener('click', () => {
+                if (isAnimating) return;
+                placementMode = 'start';
+                setStartBtn.classList.add('active'); 
+                setEndBtn.classList.remove('active');
+            });
+
+            setEndBtn.addEventListener('click', () => {
+                if (isAnimating) return;
+                placementMode = 'end';
+                setEndBtn.classList.add('active'); 
+                setStartBtn.classList.remove('active');
+            });
+            // --- END NEW LISTENERS ---
             
             // --- 7. Initial Run ---
             
