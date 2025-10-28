@@ -24,6 +24,7 @@
             color: #555;
             font-size: 1.1em;
             text-align: center;
+            max-width: 600px;
         }
         .controls {
             margin-bottom: 20px;
@@ -58,14 +59,6 @@
         #randomWallsBtn:hover {
             background-color: #1e7e34;
         }
-        /* Style for the new button */
-        #dynamicEnvBtn {
-            background-color: #ffc107;
-            color: #333;
-        }
-        #dynamicEnvBtn:hover {
-            background-color: #e0a800;
-        }
         canvas {
             border: 2px solid #333;
             background-color: #ffffff;
@@ -84,10 +77,14 @@
         <button id="clearPathBtn">Clear Path</button>
         <button id="clearWallsBtn">Clear Walls</button>
         <button id="randomWallsBtn">Random Walls</button>
-        <button id="dynamicEnvBtn">Start Dynamic Environment</button>
     </div>
 
-    <p><strong>Instructions:</strong> Click and drag to draw walls, or start the dynamic environment.</p>
+    <p>
+        <strong>Instructions:</strong>
+        1. Click and drag to draw walls (obstacles).
+        2. Click "Find Path".
+        3. <strong>Click on the yellow path</strong> to add a "construction" blockade and force a re-route.
+    </p>
 
     <canvas id="pathfindingCanvas"></canvas>
 
@@ -106,7 +103,6 @@
             canvas.width = GRID_WIDTH * CELL_SIZE;
             canvas.height = GRID_HEIGHT * CELL_SIZE;
 
-            // Colors
             const COLOR_EMPTY = '#fff';
             const COLOR_WALL = '#333';
             const COLOR_START = '#00e676';
@@ -122,7 +118,7 @@
             let isAnimating = false;
             
             // --- NEW ---
-            let dynamicIntervalId = null; // Stores the ID of our 2-second timer
+            let currentPath = []; // Stores the nodes of the currently displayed path
             // --- END NEW ---
 
             // --- 2. Node & Grid Initialization ---
@@ -163,7 +159,6 @@
                 
                 startNode = grid[Math.floor(GRID_HEIGHT / 2)][Math.floor(GRID_WIDTH / 4)];
                 endNode = grid[Math.floor(GRID_HEIGHT / 2)][Math.floor(GRID_WIDTH * 3 / 4)];
-
                 startNode.isWall = false;
                 endNode.isWall = false;
             }
@@ -195,7 +190,7 @@
             }
 
             function dijkstra() {
-                clearPath();
+                clearPath(); // Clear previous path visuals and reset nodes
                 toggleButtons(false);
                 isAnimating = true;
 
@@ -275,23 +270,16 @@
                     currentNode = currentNode.previousNode;
                 }
                 path.reverse();
+                
+                // --- MODIFIED ---
+                currentPath = path; // Store the found path
+                // --- END MODIFIED ---
 
                 let i = 0;
                 const interval = setInterval(() => {
                     if (i === path.length) {
                         clearInterval(interval);
-                        
-                        // --- MODIFIED ---
-                        // Only re-enable all buttons if the dynamic env is OFF
-                        if (dynamicIntervalId === null) {
-                            toggleButtons(true);
-                        } else {
-                            // Otherwise, just re-enable the "Stop" and "Clear Path"
-                            document.getElementById('dynamicEnvBtn').disabled = false;
-                            document.getElementById('clearPathBtn').disabled = false;
-                        }
-                        // --- END MODIFIED ---
-                        
+                        toggleButtons(true);
                         isAnimating = false;
                         return;
                     }
@@ -305,25 +293,16 @@
             
             // --- 5. Control Button Functions ---
             
-            // --- MODIFIED ---
             function toggleButtons(enabled) {
                 document.getElementById('findPathBtn').disabled = !enabled;
                 document.getElementById('clearPathBtn').disabled = !enabled;
                 document.getElementById('clearWallsBtn').disabled = !enabled;
                 document.getElementById('randomWallsBtn').disabled = !enabled;
-
-                // The dynamic button is an exception.
-                // If the dynamic env is running, it should *always* be enabled
-                if (dynamicIntervalId === null) {
-                    document.getElementById('dynamicEnvBtn').disabled = !enabled;
-                } else {
-                    document.getElementById('dynamicEnvBtn').disabled = false;
-                }
             }
-            // --- END MODIFIED ---
 
             function clearGrid() {
                 if (isAnimating) return;
+                currentPath = []; // --- NEW ---
                 for (let y = 0; y < GRID_HEIGHT; y++) {
                     for (let x = 0; x < GRID_WIDTH; x++) {
                         const node = grid[y][x];
@@ -336,6 +315,7 @@
 
             function clearPath() {
                 if (isAnimating) return;
+                currentPath = []; // --- NEW ---
                 for (let y = 0; y < GRID_HEIGHT; y++) {
                     for (let x = 0; x < GRID_WIDTH; x++) {
                         grid[y][x].reset();
@@ -346,7 +326,7 @@
 
             function generateRandomWalls() {
                 if (isAnimating) return;
-                clearGrid();
+                clearGrid(); // clearGrid already sets currentPath = []
                 for (let y = 0; y < GRID_HEIGHT; y++) {
                     for (let x = 0; x < GRID_WIDTH; x++) {
                         const node = grid[y][x];
@@ -360,56 +340,6 @@
                 drawGrid();
             }
             
-            // --- NEW DYNAMIC ENVIRONMENT FUNCTIONS ---
-            
-            /**
-             * This function is called every 2 seconds by the timer.
-             */
-            function runDynamicStep() {
-                // Don't run if an animation is already in progress
-                // It will just wait for the next 2-second cycle
-                if (isAnimating) return; 
-                
-                // 1. Generate new walls
-                generateRandomWalls(); 
-                
-                // 2. Find a new path
-                // We add a small delay so the user can see the new walls
-                // before the search animation starts.
-                setTimeout(() => {
-                    if (!isAnimating) {
-                       dijkstra();
-                    }
-                }, 100); 
-            }
-
-            /**
-             * Starts or stops the 2-second timer.
-             */
-            function toggleDynamicEnvironment() {
-                const btn = document.getElementById('dynamicEnvBtn');
-                if (dynamicIntervalId) {
-                    // It's ON - turn it OFF
-                    clearInterval(dynamicIntervalId);
-                    dynamicIntervalId = null;
-                    btn.textContent = 'Start Dynamic Environment';
-                    btn.style.backgroundColor = '#ffc107'; // Reset color
-                    toggleButtons(true); // Re-enable all other buttons
-                } else {
-                    // It's OFF - turn it ON
-                    
-                    // Disable other manual controls
-                    document.getElementById('findPathBtn').disabled = true;
-                    document.getElementById('clearWallsBtn').disabled = true;
-                    document.getElementById('randomWallsBtn').disabled = true;
-                    btn.textContent = 'Stop Dynamic Environment';
-                    btn.style.backgroundColor = '#fd7e14'; // "Stop" color
-
-                    runDynamicStep(); // Run the first step immediately
-                    dynamicIntervalId = setInterval(runDynamicStep, 2000); // Run every 2 sec
-                }
-            }
-            // --- END NEW ---
 
             // --- 6. Event Listeners ---
 
@@ -421,8 +351,14 @@
                 };
             }
 
-            function handleMouseInteraction(evt) {
-                if (isAnimating || dynamicIntervalId) return; // Don't draw if dynamic
+            /**
+             * This function only handles drawing new walls
+             */
+            function handleWallDrawing(evt) {
+                // Don't allow drawing if a path is already found.
+                // User must clear the path first.
+                if (isAnimating || currentPath.length > 0) return; 
+                
                 const { x, y } = getMousePos(evt);
                 const col = Math.floor(x / CELL_SIZE);
                 const row = Math.floor(y / CELL_SIZE);
@@ -436,15 +372,40 @@
                 }
             }
 
+            // --- MODIFIED Mouse Down Listener ---
             canvas.addEventListener('mousedown', (e) => {
-                if (isAnimating || dynamicIntervalId) return;
-                isDrawing = true;
-                handleMouseInteraction(e);
+                if (isAnimating) return;
+
+                const { x, y } = getMousePos(e);
+                const col = Math.floor(x / CELL_SIZE);
+                const row = Math.floor(y / CELL_SIZE);
+                if (row < 0 || row >= GRID_HEIGHT || col < 0 || col >= GRID_WIDTH) return;
+                
+                const clickedNode = grid[row][col];
+
+                // --- NEW LOGIC ---
+                // Check if user clicked on an existing path
+                if (currentPath.includes(clickedNode) && clickedNode !== startNode && clickedNode !== endNode) {
+                    // This is the "construction" blockade
+                    clickedNode.isWall = true;
+                    currentPath = []; // Invalidate the old path
+                    
+                    // Re-run the pathfinding
+                    dijkstra(); 
+                } 
+                // --- EXISTING LOGIC ---
+                // User is drawing new walls (only if no path exists)
+                else if (currentPath.length === 0) {
+                    isDrawing = true;
+                    handleWallDrawing(e);
+                }
             });
 
+            // --- MODIFIED Mouse Move Listener ---
             canvas.addEventListener('mousemove', (e) => {
-                if (!isDrawing || isAnimating || dynamicIntervalId) return;
-                handleMouseInteraction(e);
+                // Only draw walls if drawing is enabled AND no path exists
+                if (!isDrawing || isAnimating || currentPath.length > 0) return;
+                handleWallDrawing(e);
             });
 
             canvas.addEventListener('mouseup', () => {
@@ -461,10 +422,6 @@
             document.getElementById('clearPathBtn').addEventListener('click', clearPath);
             document.getElementById('randomWallsBtn').addEventListener('click', generateRandomWalls);
             
-            // --- NEW ---
-            document.getElementById('dynamicEnvBtn').addEventListener('click', toggleDynamicEnvironment);
-            // --- END NEW ---
-
             // --- 7. Initial Run ---
             
             initializeGrid();
