@@ -3,124 +3,597 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Autonomous Path Planning (Dijkstra)</title>
+    <title>2D Autonomous Vehicle Path Planning</title>
     
     <style>
+        :root {
+            --primary-color: #4a6fa5;
+            --secondary-color: #6b8cbc;
+            --accent-color: #ff9800;
+            --success-color: #4caf50;
+            --danger-color: #f44336;
+            --warning-color: #ffc107;
+            --dark-color: #333;
+            --light-color: #f5f5f5;
+            --grid-color: #e0e0e0;
+            --visited-color: #80deea;
+            --path-color: #ffea00;
+            --card-bg: rgba(255, 255, 255, 0.1);
+            --card-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a2a6c, #2a4a7c, #3a6a8c);
+            color: var(--light-color);
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            background-color: #f0f2f5;
-            margin: 0;
             padding: 20px;
+            overflow-x: hidden;
         }
-        h1 {
-            color: #333;
+        
+        .header {
             text-align: center;
-        }
-        p {
-            color: #555;
-            font-size: 1.1em;
-            text-align: center;
-            max-width: 600px;
-        }
-        .controls {
             margin-bottom: 20px;
+            width: 100%;
+            max-width: 1200px;
+            padding: 20px;
+            background: var(--card-bg);
+            border-radius: 15px;
+            box-shadow: var(--card-shadow);
+            backdrop-filter: blur(10px);
+        }
+        
+        h1 {
+            font-size: 2.8rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            background: linear-gradient(to right, var(--accent-color), var(--warning-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 1px;
+        }
+        
+        .subtitle {
+            font-size: 1.3rem;
+            margin-bottom: 10px;
+            opacity: 0.9;
+        }
+        
+        .tagline {
+            font-style: italic;
+            color: #bbdefb;
+            margin-top: 10px;
+        }
+        
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 1200px;
+            gap: 30px;
+        }
+        
+        .visualization-section {
+            width: 100%;
+            background: var(--card-bg);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: var(--card-shadow);
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .controls {
             display: flex;
             flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 20px;
             justify-content: center;
+            width: 100%;
         }
+        
         button {
-            background-color: #007bff;
+            background: var(--primary-color);
             color: white;
             border: none;
-            padding: 12px 20px;
-            margin: 5px;
-            border-radius: 5px;
+            padding: 14px 22px;
+            border-radius: 10px;
             font-size: 16px;
+            font-weight: 600;
             cursor: pointer;
-            transition: background-color 0.3s ease;
-            border: 2px solid transparent; /* For active state */
+            transition: all 0.3s ease;
+            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            position: relative;
+            overflow: hidden;
         }
+        
+        button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: 0.5s;
+        }
+        
+        button:hover::before {
+            left: 100%;
+        }
+        
         button:hover {
-            background-color: #0056b3;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.25);
+            background: var(--secondary-color);
         }
+        
+        button:active {
+            transform: translateY(1px);
+        }
+        
         button:disabled {
-            background-color: #aaa;
+            background: #6c757d;
             cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
         }
-        /* --- NEW BUTTON STYLES --- */
+        
+        button:disabled::before {
+            display: none;
+        }
+        
         #setStartBtn {
-            background-color: #00e676;
+            background: var(--success-color);
+        }
+        
+        #setStartBtn:hover {
+            background: #3d8b40;
+        }
+        
+        #setEndBtn {
+            background: var(--danger-color);
+        }
+        
+        #setEndBtn:hover {
+            background: #d32f2f;
+        }
+        
+        button.active {
+            box-shadow: 0 0 15px 4px var(--accent-color);
+            border: 2px solid white;
+        }
+        
+        #clearWallsBtn {
+            background: #9c27b0;
+        }
+        
+        #clearWallsBtn:hover {
+            background: #7b1fa2;
+        }
+        
+        #randomWallsBtn {
+            background: var(--warning-color);
             color: #333;
         }
-        #setStartBtn:hover {
-            background-color: #00b35c;
-        }
-        #setEndBtn {
-            background-color: #ff3d00;
-        }
-        #setEndBtn:hover {
-            background-color: #c32f00;
-        }
-        button.active {
-            box-shadow: 0 0 10px 3px #007bff;
-            border-color: #fff;
-        }
-        /* --- END NEW STYLES --- */
-        #clearWallsBtn {
-            background-color: #dc3545;
-        }
-        #clearWallsBtn:hover {
-            background-color: #a71d2a;
-        }
-        #randomWallsBtn {
-            background-color: #28a745;
-        }
+        
         #randomWallsBtn:hover {
-            background-color: #1e7e34;
+            background: #ffb300;
         }
+        
+        .input-group {
+            display: flex;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.15);
+            padding: 12px 18px;
+            border-radius: 10px;
+            margin-top: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .input-group label {
+            font-size: 16px;
+            font-weight: 600;
+            margin-right: 12px;
+        }
+        
+        .input-group input {
+            width: 60px;
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            text-align: center;
+            background: white;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            height: 500px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+            margin-top: 15px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+        
         canvas {
-            border: 2px solid #333;
+            position: absolute;
+            top: 0;
+            left: 0;
             background-color: #ffffff;
             cursor: pointer;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 25px;
+            justify-content: center;
+            width: 100%;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 8px 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .legend-color {
+            width: 22px;
+            height: 22px;
+            border-radius: 5px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .info-section {
+            width: 100%;
+            background: var(--card-bg);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: var(--card-shadow);
+            backdrop-filter: blur(10px);
+            margin-top: 20px;
+        }
+        
+        .info-section h2 {
+            color: var(--accent-color);
+            margin-bottom: 20px;
+            font-size: 2rem;
+            border-bottom: 2px solid var(--accent-color);
+            padding-bottom: 12px;
+            text-align: center;
+        }
+        
+        .info-section h3 {
+            color: var(--warning-color);
+            margin: 20px 0 12px;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .info-section h3::before {
+            content: '';
+            display: inline-block;
+            width: 8px;
+            height: 25px;
+            background: var(--warning-color);
+            border-radius: 4px;
+        }
+        
+        .info-section p {
+            line-height: 1.7;
+            margin-bottom: 18px;
+            font-size: 1.05rem;
+        }
+        
+        .algorithm-steps {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 20px;
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .algorithm-steps ol {
+            padding-left: 25px;
+        }
+        
+        .algorithm-steps li {
+            margin-bottom: 15px;
+            line-height: 1.6;
+            padding-left: 10px;
+        }
+        
+        .algorithm-steps strong {
+            color: var(--warning-color);
+        }
+        
+        .instructions {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 25px;
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .instructions h3 {
+            color: var(--warning-color);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .instructions h3::before {
+            content: '';
+            display: inline-block;
+            width: 8px;
+            height: 25px;
+            background: var(--warning-color);
+            border-radius: 4px;
+        }
+        
+        .instructions ol {
+            padding-left: 25px;
+        }
+        
+        .instructions li {
+            margin-bottom: 12px;
+            line-height: 1.6;
+            padding-left: 8px;
+        }
+        
+        .instructions strong {
+            color: var(--warning-color);
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-top: 25px;
+        }
+        
+        .feature-card {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .feature-card h4 {
+            color: var(--accent-color);
+            margin-bottom: 10px;
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .feature-card p {
+            font-size: 1rem;
+            line-height: 1.6;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding: 20px;
+            width: 100%;
+            color: #bbdefb;
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            button {
+                width: 100%;
+                max-width: 300px;
+                justify-content: center;
+            }
+            
+            .canvas-container {
+                height: 400px;
+            }
+            
+            h1 {
+                font-size: 2.2rem;
+            }
+            
+            .subtitle {
+                font-size: 1.1rem;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .canvas-container {
+                height: 350px;
+            }
+            
+            h1 {
+                font-size: 1.8rem;
+            }
+            
+            .info-section {
+                padding: 20px;
+            }
         }
     </style>
 </head>
 <body>
 
-    <h1>Autonomous Vehicle Path Planning</h1>
-    <p>Using <strong>Dijkstra's Algorithm</strong> in a Dynamic Environment</p>
-
-    <div class="controls">
-        <button id="findPathBtn">Find Path (Dijkstra)</button>
-        <button id="setStartBtn">Set Start</button>
-        <button id="setEndBtn">Set End</button>
-        <button id="clearPathBtn">Clear Path</button>
-        <button id="clearWallsBtn">Clear Walls</button>
-        <button id="randomWallsBtn">Random Walls</button>
+    <div class="header">
+        <h1>2D Autonomous Vehicle Path Planning</h1>
+        <p class="subtitle">Using <strong>Dijkstra's Algorithm</strong> in a Dynamic Environment</p>
+        <p class="tagline">Visualizing the shortest path from start to finish with dynamic obstacles</p>
     </div>
 
-    <p>
-        <strong>Instructions:</strong>
-        1. Click "Set Start" or "Set End", then click on the grid to place them.
-        2. Click and drag to draw walls (obstacles).
-        3. Click "Find Path". The path will be blocked automatically (once).
-        4. <strong>Click on the yellow path</strong> to add more blockades and force re-routes.
-    </p>
+    <div class="main-content">
+        <div class="visualization-section">
+            <div class="controls">
+                <button id="findPathBtn">
+                    <span>🚗</span> Find Path (Dijkstra)
+                </button>
+                <button id="setStartBtn">
+                    <span>📍</span> Set Start
+                </button>
+                <button id="setEndBtn">
+                    <span>🎯</span> Set End
+                </button>
+                <button id="clearPathBtn">
+                    <span>🗑️</span> Clear Path
+                </button>
+                <button id="clearWallsBtn">
+                    <span>🧹</span> Clear Walls
+                </button>
+                <button id="randomWallsBtn">
+                    <span>🎲</span> Random Walls
+                </button>
+            </div>
 
-    <canvas id="pathfindingCanvas"></canvas>
+            <div class="input-group">
+                <label for="dynamicObstaclesInput">Dynamic Obstacles:</label>
+                <input type="number" id="dynamicObstaclesInput" value="1" min="0" max="5">
+            </div>
+
+            <div class="canvas-container">
+                <canvas id="pathfindingCanvas"></canvas>
+            </div>
+
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #00e676;"></div>
+                    <span>Start Node (Green Flag)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ff3d00;"></div>
+                    <span>End Node (Red Flag)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #333;"></div>
+                    <span>Wall/Obstacle</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #80deea;"></div>
+                    <span>Visited Nodes</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ffea00;"></div>
+                    <span>Optimal Path</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h2>Dijkstra's Pathfinding Algorithm</h2>
+            <p>This visualization demonstrates Dijkstra's algorithm, a fundamental method for finding the shortest path between nodes in a graph. It's widely used in autonomous vehicle navigation, robotics, and network routing.</p>
+            
+            <h3>How Dijkstra's Algorithm Works</h3>
+            <div class="algorithm-steps">
+                <ol>
+                    <li><strong>Initialization:</strong> Set the distance to the start node as 0 and all other nodes as infinity.</li>
+                    <li><strong>Visit Nodes:</strong> Visit the unvisited node with the smallest known distance.</li>
+                    <li><strong>Update Neighbors:</strong> For the current node, calculate the distance to each of its neighbors. If this distance is less than the known distance, update the neighbor's distance.</li>
+                    <li><strong>Mark as Visited:</strong> Once all neighbors are checked, mark the current node as visited.</li>
+                    <li><strong>Repeat:</strong> Continue this process until all nodes have been visited or the destination is reached.</li>
+                    <li><strong>Backtrack:</strong> Once the destination is reached, backtrack from the end node to the start node using the stored previous nodes to find the shortest path.</li>
+                </ol>
+            </div>
+            
+            <h3>Dynamic Obstacles</h3>
+            <p>This simulation includes dynamic obstacles that appear during pathfinding, simulating real-world scenarios where new obstacles might appear while a vehicle is navigating. When an obstacle appears, the algorithm recalculates the path from the current position to the destination.</p>
+            
+            <h3>Car Animation</h3>
+            <p>After finding the path, the visualization will zoom out to show the entire map, then zoom in on the car and follow it along its journey from the green start flag to the red end flag.</p>
+            
+            <div class="features-grid">
+                <div class="feature-card">
+                    <h4>🚗 Real-time Animation</h4>
+                    <p>Watch as the car navigates from start to finish with smooth camera movements that zoom in and follow the journey.</p>
+                </div>
+                <div class="feature-card">
+                    <h4>🔄 Dynamic Obstacles</h4>
+                    <p>Experience how the algorithm adapts when new obstacles appear during the car's journey, simulating real-world conditions.</p>
+                </div>
+                <div class="feature-card">
+                    <h4>🎯 Interactive Controls</h4>
+                    <p>Set custom start and end points, draw walls, or generate random mazes to test the algorithm in different scenarios.</p>
+                </div>
+                <div class="feature-card">
+                    <h4>📊 Visual Feedback</h4>
+                    <p>Clear color coding helps you understand each step of the algorithm from visited nodes to the final optimal path.</p>
+                </div>
+            </div>
+            
+            <h3>Applications in Autonomous Vehicles</h3>
+            <p>Dijkstra's algorithm forms the basis for many real-world navigation systems in autonomous vehicles. While modern systems use more advanced variants (like A*), the fundamental principles remain the same:</p>
+            <ul>
+                <li>Mapping the environment as a grid of nodes</li>
+                <li>Calculating the shortest safe path</li>
+                <li>Adapting to dynamic obstacles in real-time</li>
+                <li>Ensuring efficient route planning</li>
+            </ul>
+            
+            <div class="instructions">
+                <h3>Instructions</h3>
+                <ol>
+                    <li>Set the number of <strong>Dynamic Obstacles</strong> (e.g., 2)</li>
+                    <li>Click "Find Path" - the path will be blocked that many times during calculation</li>
+                    <li>You can also click on the yellow path to add more blocks manually</li>
+                    <li>Use "Set Start" and "Set End" to change the start and end positions</li>
+                    <li>Draw walls by clicking and dragging on the grid</li>
+                    <li>Use "Random Walls" to generate a random maze</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Path Planning Visualization | Dijkstra's Algorithm | Autonomous Vehicle Navigation</p>
+    </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-
             // --- 1. Setup & Configuration ---
             
             const canvas = document.getElementById('pathfindingCanvas');
             const ctx = canvas.getContext('2d');
+            const container = document.querySelector('.canvas-container');
 
             const CELL_SIZE = 20;
             const GRID_WIDTH = 40;
@@ -144,13 +617,29 @@
             let isAnimating = false;
             
             let currentPath = []; 
-            let hasDynamicObstacleBeenAdded = false;
             
-            // --- NEW STATE VARIABLE ---
-            let placementMode = null; // null, 'start', or 'end'
+            // Camera and zoom variables
+            let camera = {
+                x: 0,
+                y: 0,
+                scale: 1
+            };
+            
+            // Car animation variables
+            let carPosition = { x: 0, y: 0 };
+            let carPath = [];
+            let carAnimationStep = 0;
+            let isCarAnimating = false;
+            
+            // --- MODIFIED STATE VARIABLES ---
+            let maxDynamicObstacles = 1;
+            let dynamicObstaclesAdded = 0;
+            const dynamicObstaclesInput = document.getElementById('dynamicObstaclesInput');
+            // --- END MODIFIED ---
+            
+            let placementMode = null; 
             const setStartBtn = document.getElementById('setStartBtn');
             const setEndBtn = document.getElementById('setEndBtn');
-            // --- END NEW ---
 
             // --- 2. Node & Grid Initialization ---
 
@@ -167,8 +656,21 @@
                 draw(color) {
                     ctx.fillStyle = color;
                     ctx.fillRect(this.x * CELL_SIZE, this.y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-                    ctx.strokeStyle = COLOR_GRID;
-                    ctx.strokeRect(this.x * CELL_SIZE, this.y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                    
+                    // Add 3D effect for walls
+                    if (this.isWall) {
+                        ctx.strokeStyle = '#222';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(this.x * CELL_SIZE, this.y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                        
+                        // Add shadow effect
+                        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                        ctx.fillRect(this.x * CELL_SIZE + 2, this.y * CELL_SIZE + 2, CELL_SIZE, CELL_SIZE);
+                    } else {
+                        ctx.strokeStyle = COLOR_GRID;
+                        ctx.lineWidth = 1;
+                        ctx.strokeRect(this.x * CELL_SIZE, this.y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                    }
                 }
 
                 reset() {
@@ -192,10 +694,28 @@
                 endNode = grid[Math.floor(GRID_HEIGHT / 2)][Math.floor(GRID_WIDTH * 3 / 4)];
                 startNode.isWall = false;
                 endNode.isWall = false;
+                
+                // Set initial car position to start node
+                carPosition = { x: startNode.x, y: startNode.y };
             }
 
             function drawGrid() {
+                // Clear canvas
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Apply camera transformation
+                ctx.save();
+                ctx.translate(camera.x, camera.y);
+                ctx.scale(camera.scale, camera.scale);
+                
+                // Draw background with gradient
+                const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+                gradient.addColorStop(0, '#f8f9fa');
+                gradient.addColorStop(1, '#e9ecef');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Draw grid cells
                 for (let y = 0; y < GRID_HEIGHT; y++) {
                     for (let x = 0; x < GRID_WIDTH; x++) {
                         const node = grid[y][x];
@@ -204,8 +724,83 @@
                         node.draw(color);
                     }
                 }
-                startNode.draw(COLOR_START);
-                endNode.draw(COLOR_END);
+                
+                // Draw start and end with 3D effect
+                drawNodeWith3DEffect(startNode, COLOR_START);
+                drawNodeWith3DEffect(endNode, COLOR_END);
+                
+                // Draw car if animating
+                if (isCarAnimating) {
+                    drawCar();
+                }
+                
+                ctx.restore();
+            }
+            
+            function drawNodeWith3DEffect(node, color) {
+                // Main node
+                ctx.fillStyle = color;
+                ctx.fillRect(node.x * CELL_SIZE, node.y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                
+                // Add 3D effect with gradient
+                const gradient = ctx.createLinearGradient(
+                    node.x * CELL_SIZE, 
+                    node.y * CELL_SIZE, 
+                    node.x * CELL_SIZE + CELL_SIZE, 
+                    node.y * CELL_SIZE + CELL_SIZE
+                );
+                
+                if (color === COLOR_START) {
+                    gradient.addColorStop(0, '#00e676');
+                    gradient.addColorStop(1, '#00c853');
+                } else {
+                    gradient.addColorStop(0, '#ff3d00');
+                    gradient.addColorStop(1, '#dd2c00');
+                }
+                
+                ctx.fillStyle = gradient;
+                ctx.fillRect(node.x * CELL_SIZE, node.y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                
+                // Add border
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(node.x * CELL_SIZE, node.y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                
+                // Add shadow
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                ctx.fillRect(node.x * CELL_SIZE + 2, node.y * CELL_SIZE + 2, CELL_SIZE, CELL_SIZE);
+            }
+            
+            function drawCar() {
+                const carX = carPosition.x * CELL_SIZE + CELL_SIZE / 2;
+                const carY = carPosition.y * CELL_SIZE + CELL_SIZE / 2;
+                
+                // Car body
+                ctx.fillStyle = '#1e88e5';
+                ctx.fillRect(carX - 8, carY - 5, 16, 10);
+                
+                // Car top
+                ctx.fillStyle = '#1565c0';
+                ctx.fillRect(carX - 6, carY - 8, 12, 6);
+                
+                // Windows
+                ctx.fillStyle = '#bbdefb';
+                ctx.fillRect(carX - 4, carY - 7, 8, 4);
+                
+                // Wheels
+                ctx.fillStyle = '#212121';
+                ctx.fillRect(carX - 8, carY - 7, 3, 3);
+                ctx.fillRect(carX + 5, carY - 7, 3, 3);
+                ctx.fillRect(carX - 8, carY + 4, 3, 3);
+                ctx.fillRect(carX + 5, carY + 4, 3, 3);
+                
+                // Headlights
+                ctx.fillStyle = '#ffeb3b';
+                ctx.fillRect(carX - 9, carY - 3, 2, 2);
+                
+                // Taillights
+                ctx.fillStyle = '#f44336';
+                ctx.fillRect(carX + 7, carY - 3, 2, 2);
             }
 
             // --- 3. Dijkstra's Algorithm Logic ---
@@ -220,12 +815,11 @@
                 return neighbors.filter(neighbor => !neighbor.isWall);
             }
 
-            function dijkstra() {
-                // --- MODIFIED ---
+            // This function is now the CORE pathfinder
+            function runDijkstra() {
                 setStartBtn.classList.remove('active');
                 setEndBtn.classList.remove('active');
                 placementMode = null;
-                // --- END MODIFIED ---
                 
                 clearPath(); 
                 toggleButtons(false);
@@ -271,6 +865,17 @@
                 requestAnimationFrame(algorithmStep);
             }
 
+            // --- NEW FUNCTION ---
+            // This function starts a NEW simulation and resets the counters
+            function startNewSimulation() {
+                if (isAnimating) return;
+                maxDynamicObstacles = parseInt(dynamicObstaclesInput.value, 10) || 0;
+                dynamicObstaclesAdded = 0;
+                console.log(`--- Starting new simulation with ${maxDynamicObstacles} dynamic obstacles ---`);
+                runDijkstra();
+            }
+            // --- END NEW FUNCTION ---
+
             function getAllNodes() {
                 const nodes = [];
                 for (const row of grid) {
@@ -293,7 +898,20 @@
                     }
                     const node = visitedNodes[i];
                     if (node !== startNode && node !== endNode) {
-                        node.draw(COLOR_VISITED);
+                        // Draw visited nodes with gradient
+                        const gradient = ctx.createLinearGradient(
+                            node.x * CELL_SIZE, 
+                            node.y * CELL_SIZE, 
+                            node.x * CELL_SIZE + CELL_SIZE, 
+                            node.y * CELL_SIZE + CELL_SIZE
+                        );
+                        gradient.addColorStop(0, '#80deea');
+                        gradient.addColorStop(1, '#4dd0e1');
+                        ctx.fillStyle = gradient;
+                        ctx.fillRect(node.x * CELL_SIZE, node.y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                        
+                        ctx.strokeStyle = COLOR_GRID;
+                        ctx.strokeRect(node.x * CELL_SIZE, node.y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
                     }
                     i++;
                 }, 10);
@@ -316,34 +934,175 @@
                         clearInterval(interval);
                         toggleButtons(true);
                         isAnimating = false;
+                        
+                        // Start the car animation after path is drawn
+                        if(dynamicObstaclesAdded >= maxDynamicObstacles) {
+                            console.log("--- Simulation Complete ---");
+                            startCarAnimation(path);
+                        }
                         return;
                     }
 
-                    if (!hasDynamicObstacleBeenAdded && i === Math.floor(path.length / 2)) {
+                    // --- MODIFIED DYNAMIC OBSTACLE LOGIC ---
+                    if (dynamicObstaclesAdded < maxDynamicObstacles && i === Math.floor(path.length / 2)) {
                         const obstacleNode = path[i + 1]; 
 
                         if (obstacleNode && obstacleNode !== endNode) {
-                            console.log("Sudden obstacle detected! Re-routing...");
+                            dynamicObstaclesAdded++; // Increment counter
+                            console.log(`Obstacle ${dynamicObstaclesAdded}/${maxDynamicObstacles} added! Re-routing...`);
+                            
                             clearInterval(interval); 
 
                             obstacleNode.isWall = true; 
                             obstacleNode.draw(COLOR_WALL); 
-                            
-                            hasDynamicObstacleBeenAdded = true; 
-                            
+                                                        
                             currentPath = []; 
                             
-                            dijkstra(); 
+                            runDijkstra(); // Call the core function
                             return; 
                         }
                     }
+                    // --- END MODIFIED LOGIC ---
 
                     const node = path[i];
                     if (node !== startNode && node !== endNode) {
-                        node.draw(COLOR_PATH);
+                        // Draw path with gradient
+                        const gradient = ctx.createLinearGradient(
+                            node.x * CELL_SIZE, 
+                            node.y * CELL_SIZE, 
+                            node.x * CELL_SIZE + CELL_SIZE, 
+                            node.y * CELL_SIZE + CELL_SIZE
+                        );
+                        gradient.addColorStop(0, '#ffea00');
+                        gradient.addColorStop(1, '#ffd600');
+                        ctx.fillStyle = gradient;
+                        ctx.fillRect(node.x * CELL_SIZE, node.y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                        
+                        ctx.strokeStyle = '#ffab00';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(node.x * CELL_SIZE, node.y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
                     }
                     i++;
                 }, 40);
+            }
+            
+            // --- NEW CAR ANIMATION FUNCTIONS ---
+            
+            function startCarAnimation(path) {
+                carPath = path;
+                carAnimationStep = 0;
+                isCarAnimating = true;
+                
+                // Start with zoom out
+                zoomOut();
+            }
+            
+            function zoomOut() {
+                const startScale = 1;
+                const endScale = 0.3;
+                const duration = 1000; // ms
+                const startTime = Date.now();
+                
+                function animateZoom() {
+                    const elapsed = Date.now() - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    
+                    // Easing function for smooth animation
+                    const easeOut = 1 - Math.pow(1 - progress, 3);
+                    
+                    camera.scale = startScale + (endScale - startScale) * easeOut;
+                    
+                    // Center the camera
+                    camera.x = (canvas.width - canvas.width * camera.scale) / 2;
+                    camera.y = (canvas.height - canvas.height * camera.scale) / 2;
+                    
+                    drawGrid();
+                    
+                    if (progress < 1) {
+                        requestAnimationFrame(animateZoom);
+                    } else {
+                        // After zoom out, wait a moment then zoom in on car
+                        setTimeout(zoomInOnCar, 500);
+                    }
+                }
+                
+                animateZoom();
+            }
+            
+            function zoomInOnCar() {
+                const startScale = camera.scale;
+                const endScale = 1.5;
+                const duration = 1000; // ms
+                const startTime = Date.now();
+                
+                // Set car to start position
+                carPosition = { x: startNode.x, y: startNode.y };
+                
+                function animateZoom() {
+                    const elapsed = Date.now() - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    
+                    // Easing function for smooth animation
+                    const easeOut = 1 - Math.pow(1 - progress, 3);
+                    
+                    camera.scale = startScale + (endScale - startScale) * easeOut;
+                    
+                    // Center camera on car
+                    const targetX = carPosition.x * CELL_SIZE + CELL_SIZE / 2;
+                    const targetY = carPosition.y * CELL_SIZE + CELL_SIZE / 2;
+                    
+                    camera.x = canvas.width / 2 - targetX * camera.scale;
+                    camera.y = canvas.height / 2 - targetY * camera.scale;
+                    
+                    drawGrid();
+                    
+                    if (progress < 1) {
+                        requestAnimationFrame(animateZoom);
+                    } else {
+                        // After zoom in, start following the car
+                        followCar();
+                    }
+                }
+                
+                animateZoom();
+            }
+            
+            function followCar() {
+                const duration = 3000; // ms for entire journey
+                const startTime = Date.now();
+                const stepDuration = duration / carPath.length;
+                
+                function animateCar() {
+                    const elapsed = Date.now() - startTime;
+                    const step = Math.min(Math.floor(elapsed / stepDuration), carPath.length - 1);
+                    
+                    if (step > carAnimationStep) {
+                        carAnimationStep = step;
+                        carPosition = { 
+                            x: carPath[step].x, 
+                            y: carPath[step].y 
+                        };
+                        
+                        // Update camera to follow car
+                        const targetX = carPosition.x * CELL_SIZE + CELL_SIZE / 2;
+                        const targetY = carPosition.y * CELL_SIZE + CELL_SIZE / 2;
+                        
+                        camera.x = canvas.width / 2 - targetX * camera.scale;
+                        camera.y = canvas.height / 2 - targetY * camera.scale;
+                    }
+                    
+                    drawGrid();
+                    
+                    if (step < carPath.length - 1) {
+                        requestAnimationFrame(animateCar);
+                    } else {
+                        // Animation complete
+                        isCarAnimating = false;
+                        console.log("Car journey complete!");
+                    }
+                }
+                
+                animateCar();
             }
             
             // --- 5. Control Button Functions ---
@@ -353,20 +1112,17 @@
                 document.getElementById('clearPathBtn').disabled = !enabled;
                 document.getElementById('clearWallsBtn').disabled = !enabled;
                 document.getElementById('randomWallsBtn').disabled = !enabled;
-                // --- MODIFIED ---
                 document.getElementById('setStartBtn').disabled = !enabled;
                 document.getElementById('setEndBtn').disabled = !enabled;
-                // --- END MODIFIED ---
+                dynamicObstaclesInput.disabled = !enabled; // Disable input during animation
             }
 
             function clearGrid() {
                 currentPath = []; 
-                hasDynamicObstacleBeenAdded = false; 
-                // --- MODIFIED ---
+                dynamicObstaclesAdded = 0; // Reset counter
                 placementMode = null;
                 setStartBtn.classList.remove('active');
                 setEndBtn.classList.remove('active');
-                // --- END MODIFIED ---
                 for (let y = 0; y < GRID_HEIGHT; y++) {
                     for (let x = 0; x < GRID_WIDTH; x++) {
                         const node = grid[y][x];
@@ -374,27 +1130,29 @@
                         node.reset();
                     }
                 }
+                // Reset camera
+                camera = { x: 0, y: 0, scale: 1 };
                 drawGrid();
             }
 
             function clearPath() {
                 currentPath = []; 
-                hasDynamicObstacleBeenAdded = false; 
-                // --- MODIFIED ---
+                // Don't reset counter here, clearPath is part of the re-run
                 placementMode = null;
                 setStartBtn.classList.remove('active');
                 setEndBtn.classList.remove('active');
-                // --- END MODIFIED ---
                 for (let y = 0; y < GRID_HEIGHT; y++) {
                     for (let x = 0; x < GRID_WIDTH; x++) {
                         grid[y][x].reset();
                     }
                 }
+                // Reset camera
+                camera = { x: 0, y: 0, scale: 1 };
                 drawGrid();
             }
 
             function generateRandomWalls() {
-                clearGrid(); 
+                clearGrid(); // clearGrid resets the counter
                 for (let y = 0; y < GRID_HEIGHT; y++) {
                     for (let x = 0; x < GRID_WIDTH; x++) {
                         const node = grid[y][x];
@@ -419,7 +1177,6 @@
             }
 
             function handleWallDrawing(evt) {
-                // MODIFIED: Check placementMode
                 if (isAnimating || currentPath.length > 0 || placementMode !== null) return; 
                 
                 const { x, y } = getMousePos(evt);
@@ -435,7 +1192,6 @@
                 }
             }
 
-            // --- HEAVILY MODIFIED Mousedown Listener ---
             canvas.addEventListener('mousedown', (e) => {
                 if (isAnimating) return;
 
@@ -446,55 +1202,43 @@
                 
                 const clickedNode = grid[row][col];
 
-                // --- NEW PLACEMENT LOGIC ---
                 if (placementMode === 'start') {
                     if (clickedNode === endNode || clickedNode.isWall) return; 
-                    
-                    if (startNode) startNode.draw(COLOR_EMPTY); // Redraw old start as empty
-                    
+                    if (startNode) startNode.draw(COLOR_EMPTY); 
                     startNode = clickedNode;
-                    startNode.draw(COLOR_START);
-                    
+                    drawNodeWith3DEffect(startNode, COLOR_START);
                     placementMode = null; 
                     setStartBtn.classList.remove('active');
-                    
-                    if (currentPath.length > 0) clearPath(); // Clear old path
+                    if (currentPath.length > 0) clearPath(); 
                     return; 
                 }
 
                 if (placementMode === 'end') {
                     if (clickedNode === startNode || clickedNode.isWall) return; 
-                    
-                    if (endNode) endNode.draw(COLOR_EMPTY); // Redraw old end as empty
-                    
+                    if (endNode) endNode.draw(COLOR_EMPTY); 
                     endNode = clickedNode;
-                    endNode.draw(COLOR_END);
-                    
+                    drawNodeWith3DEffect(endNode, COLOR_END);
                     placementMode = null; 
                     setEndBtn.classList.remove('active');
-
-                    if (currentPath.length > 0) clearPath(); // Clear old path
+                    if (currentPath.length > 0) clearPath(); 
                     return; 
                 }
-                // --- END NEW PLACEMENT LOGIC ---
 
-                // Click on existing path
                 if (currentPath.includes(clickedNode) && clickedNode !== startNode && clickedNode !== endNode) {
                     clickedNode.isWall = true;
                     currentPath = [];
-                    hasDynamicObstacleBeenAdded = true; 
-                    dijkstra(); 
+                    console.log("Manual obstacle added! Re-routing...");
+                    // We don't increment the *automatic* counter here,
+                    // this is just a manual override.
+                    runDijkstra(); 
                 } 
-                // Draw new walls
                 else if (currentPath.length === 0 && placementMode === null) {
                     isDrawing = true;
                     handleWallDrawing(e);
                 }
             });
 
-            // --- MODIFIED Mousemove Listener ---
             canvas.addEventListener('mousemove', (e) => {
-                // Check placementMode
                 if (!isDrawing || isAnimating || currentPath.length > 0 || placementMode !== null) return;
                 handleWallDrawing(e);
             });
@@ -507,11 +1251,9 @@
                 isDrawing = false;
             });
 
-            // Button listeners
-            document.getElementById('findPathBtn').addEventListener('click', () => {
-                if (isAnimating) return;
-                dijkstra();
-            });
+            // --- MODIFIED "FIND PATH" BUTTON ---
+            document.getElementById('findPathBtn').addEventListener('click', startNewSimulation);
+            // --- END MODIFIED ---
             
             document.getElementById('clearWallsBtn').addEventListener('click', () => {
                 if (isAnimating) return;
@@ -520,7 +1262,7 @@
             
             document.getElementById('clearPathBtn').addEventListener('click', () => {
                 if (isAnimating) return;
-                clearPath();
+                clearGrid(); // Clearing the path should be a full reset
             });
             
             document.getElementById('randomWallsBtn').addEventListener('click', () => {
@@ -528,7 +1270,6 @@
                 generateRandomWalls();
             });
 
-            // --- NEW BUTTON LISTENERS ---
             setStartBtn.addEventListener('click', () => {
                 if (isAnimating) return;
                 placementMode = 'start';
@@ -542,7 +1283,6 @@
                 setEndBtn.classList.add('active'); 
                 setStartBtn.classList.remove('active');
             });
-            // --- END NEW LISTENERS ---
             
             // --- 7. Initial Run ---
             
