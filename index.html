@@ -3,688 +3,489 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>City Path Planning — A* + Replanning (Web Demo)</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<title>City Path Planning — Futuristic Demo</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Inter:wght@300;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg1: #071327;
-    --bg2: #071827;
-    --card: rgba(255,255,255,0.03);
-    --muted: #9fb5c9;
-    --accent: #59b0ff;
-    --accent-2: #7af0c4;
-    --road: #1e2a34;
-    --building: #14202a;
-    --park: #133d2e;
-    --water: #08304a;
-    --car-body: #ffd166;
-    --car-top: #ff7b7b;
-    --path: #7aaeff;
-    --ob: #ff6b6b;
-    --glass: rgba(255,255,255,0.08);
+    --bg:#030617;
+    --panel:#061226;
+    --muted:#7fb2d9;
+    --neon:#4dd0ff;
+    --neon-2:#6ef6c1;
+    --accent:#8da9ff;
+    --danger:#ff6b6b;
+    --glass: rgba(255,255,255,0.03);
+    --glass-2: rgba(77,208,255,0.04);
+    --card-shadow: 0 12px 40px rgba(3,8,16,0.7);
+    --glass-border: 1px solid rgba(77,208,255,0.06);
   }
 
-  *{box-sizing:border-box}
-  html,body{height:100%; margin:0; font-family:Inter,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial; background:linear-gradient(180deg,var(--bg1),var(--bg2)); color:#e7f3ff}
-  .wrap { width:1160px; margin:22px auto; display:grid; grid-template-columns:760px 1fr; gap:18px; align-items:start; }
-  .card { background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.00)); border-radius:12px; padding:14px; border:1px solid rgba(255,255,255,0.04); box-shadow: 0 10px 30px rgba(2,8,20,0.6); }
-  .header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:10px; }
-  .title { font-size:18px; font-weight:700; color:#e9fbff; letter-spacing:0.2px }
-  .subtitle { color:var(--muted); font-size:13px; margin-top:4px }
-  #canvasWrap { display:flex; flex-direction:column; gap:12px; align-items:center; }
+  /* Page layout */
+  html,body{height:100%; margin:0; background:linear-gradient(180deg,#020410 0%, #031026 100%); color:#dff6ff; font-family:Inter,system-ui,Segoe UI,Roboto,Arial; -webkit-font-smoothing:antialiased;}
+  .page { max-width:1180px; margin:18px auto; display:flex; flex-direction:column; gap:18px; padding:10px; }
+  header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .brand { display:flex; gap:12px; align-items:center; }
+  .logo { width:52px; height:52px; border-radius:10px; background:linear-gradient(135deg,var(--neon),var(--neon-2)); display:flex; align-items:center; justify-content:center; color:#021; font-weight:800; box-shadow:0 6px 20px rgba(77,208,255,0.12), inset 0 -4px 12px rgba(0,0,0,0.25); font-family:'Share Tech Mono', monospace; }
+  .title { font-weight:700; letter-spacing:0.6px; font-size:18px; color:var(--neon); }
+  .subtitle { font-size:12px; color:var(--muted); margin-top:2px; }
 
-  canvas { background:linear-gradient(180deg, #07131b, #051422); border-radius:10px; width:720px; height:480px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.02), 0 8px 18px rgba(2,8,20,0.5); image-rendering: pixelated; border:1px solid rgba(255,255,255,0.03); }
+  /* Main content area: centered map + thin control bar */
+  .main { display:flex; justify-content:center; align-items:flex-start; gap:18px; }
+  .map-card { width:760px; background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border-radius:12px; padding:12px; border:var(--glass-border); box-shadow:var(--card-shadow); display:flex; flex-direction:column; align-items:center; }
+  /* Center the canvas inside */
+  #gridCanvas { width:720px; height:480px; border-radius:10px; background:linear-gradient(180deg,#051422,#082433); box-shadow: inset 0 1px 0 rgba(255,255,255,0.02), 0 8px 30px rgba(3,8,16,0.6); display:block; border:1px solid rgba(77,208,255,0.04); image-rendering:pixelated; }
 
-  .controls { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-  button, select { background:transparent; color:var(--muted); border:1px solid rgba(255,255,255,0.04); padding:8px 10px; border-radius:9px; cursor:pointer; font-weight:600 }
-  button.primary { background:linear-gradient(180deg,#177bff,#0a4aa7); color:white; border:0; box-shadow:0 8px 20px rgba(6,51,121,0.35) }
-  .small { font-size:12px; color:var(--muted) }
-  .legend { display:flex; gap:10px; margin-top:8px; flex-wrap:wrap; align-items:center }
-  .lg { display:flex; gap:8px; align-items:center; color:var(--muted); font-size:13px }
-  .sw { width:16px; height:14px; border-radius:4px; display:inline-block; box-shadow: inset 0 -4px 8px rgba(0,0,0,0.25) }
+  /* tiny neon control bar */
+  .controls { width:100%; display:flex; align-items:center; gap:10px; margin-bottom:8px; justify-content:space-between; }
+  .controls .left { display:flex; gap:8px; align-items:center; }
+  button, select, input[type=range] { background:transparent; color:var(--neon); border:1px solid rgba(77,208,255,0.07); padding:8px 10px; border-radius:8px; cursor:pointer; font-weight:700; font-size:12px; letter-spacing:0.6px; }
+  button.primary { background:linear-gradient(90deg,var(--neon),var(--neon-2)); color:#002; border:0; box-shadow:0 8px 18px rgba(77,208,255,0.08); }
+  .small { font-size:12px; color:var(--muted); }
 
-  .sidebar { display:flex; flex-direction:column; gap:12px; }
-  .panel { padding:12px; border-radius:10px; background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00)); border:1px solid rgba(255,255,255,0.03) }
-  label { font-size:13px; color:var(--muted); display:block; margin-bottom:6px }
-  input[type=range] { width:100% }
-  .row { display:flex; gap:8px; align-items:center }
-  .muted { color:var(--muted) }
-  .footer { font-size:12px; color:var(--muted) }
-  .badge { font-size:11px; color:#0b2a3c; background:var(--accent); padding:6px 8px; border-radius:8px; font-weight:700 }
-  .ui-row { display:flex; gap:8px; align-items:center; justify-content:space-between; margin-bottom:8px }
-  .hint { font-size:12px; color:#cfefff }
+  /* right side small stats */
+  .status { display:flex; gap:10px; align-items:center; }
+  .stat-pill { background:linear-gradient(180deg, rgba(77,208,255,0.02), rgba(77,208,255,0.01)); padding:6px 10px; border-radius:8px; border:1px solid rgba(77,208,255,0.03); font-weight:700; color:var(--neon); font-size:13px; }
+
+  /* Scrollable info area below the map */
+  .info { margin-top:6px; background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00)); border-radius:10px; padding:14px; border:1px solid rgba(255,255,255,0.03); color:var(--muted); box-shadow:0 10px 30px rgba(1,6,12,0.6); max-height:420px; overflow:auto; }
+  .info h2 { margin:2px 0 8px 0; color:var(--accent); font-size:16px; }
+  .info pre { background:rgba(0,0,0,0.25); padding:12px; border-radius:8px; color:#dff6ff; overflow:auto; font-size:13px; }
+  .info .section { margin-bottom:12px; }
+  .tag { display:inline-block; padding:6px 8px; border-radius:8px; background:rgba(77,208,255,0.06); color:var(--neon); font-weight:700; margin-right:8px; font-size:12px; }
+
+  footer { text-align:center; color:var(--muted); font-size:12px; margin-top:4px; }
+
+  /* futuristic grid lines overlay */
+  #overlay { position:relative; pointer-events:none; margin-top:-498px; width:720px; height:480px; border-radius:10px; mix-blend-mode:overlay; opacity:0.06; }
+
+  /* Responsive */
+  @media(max-width:980px){ .page{padding:8px} .wrap{width:100%;} .map-card{width:100%} #gridCanvas{width:100%; height:auto} #overlay{display:none} }
 </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card" id="canvasWrap">
-      <div class="header">
+  <div class="page">
+    <header>
+      <div class="brand">
+        <div class="logo">CP</div>
         <div>
-          <div class="title">City Path Planning — A* with Replanning</div>
-          <div class="subtitle">Random city generated each reset • Vehicle draws as a rotating car • Click to set start (left) and goal (right)</div>
-        </div>
-        <div style="text-align:right">
-          <div class="badge">DA&A — 5th Sem</div>
-          <div class="small" style="margin-top:6px">Grid: <span id="gridInfo">30 × 20</span></div>
+          <div class="title">City Path Planning — A* Replanning</div>
+          <div class="subtitle">Design & Analysis of Algorithms — Demo (5th sem)</div>
         </div>
       </div>
-
-      <canvas id="gridCanvas" width="720" height="480"></canvas>
-
-      <div style="width:100%; display:flex; justify-content:space-between; align-items:center;">
-        <div class="controls">
-          <button id="startBtn" class="primary">Start</button>
-          <button id="pauseBtn">Pause</button>
-          <button id="stepBtn">Step</button>
-          <button id="resetBtn">Reset Map</button>
-          <button id="regenBtn">Regenerate City</button>
-
-          <label style="margin-left:6px" class="small">
-            Speed
-            <input type="range" id="speedRange" min="1" max="30" value="10" />
-          </label>
-
-          <label class="small">Obstacles:
-            <select id="obsCount" style="margin-left:6px">
-              <option value="4">4</option>
-              <option value="8" selected>8</option>
-              <option value="12">12</option>
-              <option value="18">18</option>
-            </select>
-          </label>
-        </div>
-
-        <div style="text-align:right">
-          <div class="small">Tick: <span id="tick">0</span></div>
-          <div class="small">Replans: <span id="replans">0</span></div>
-        </div>
+      <div class="status">
+        <div class="stat-pill" id="tickPill">Tick: 0</div>
+        <div class="stat-pill" id="replanPill">Replans: 0</div>
+        <div class="stat-pill" id="nodesPill">Nodes: 0</div>
       </div>
+    </header>
 
-      <div class="legend">
-        <div class="lg"><span class="sw" style="background:var(--road)"></span> Road</div>
-        <div class="lg"><span class="sw" style="background:var(--building)"></span> Building</div>
-        <div class="lg"><span class="sw" style="background:var(--park)"></span> Park</div>
-        <div class="lg"><span class="sw" style="background:var(--water)"></span> Water</div>
-        <div class="lg"><span class="sw" style="background:var(--ob)"></span> Moving obstacle</div>
-        <div class="lg"><span class="sw" style="background:var(--path)"></span> Planned path</div>
-        <div class="lg" id="carLegend" style="padding-left:6px">
-          <!-- car mini rendered by canvas -> keep space -->
-          <canvas id="miniCar" width="42" height="18" style="border-radius:4px;background:transparent"></canvas>
-          <div class="small muted"> Vehicle</div>
-        </div>
-      </div>
+    <main class="main">
+      <section class="map-card" role="main" aria-label="Path planning map">
+        <div class="controls" aria-hidden="false">
+          <div class="left">
+            <button id="startBtn" class="primary">START</button>
+            <button id="pauseBtn">PAUSE</button>
+            <button id="stepBtn">STEP</button>
+            <button id="regenBtn">REGEN CITY</button>
+            <label class="small" style="margin-left:8px">Obstacles:
+              <select id="obsCount"><option value="4">4</option><option value="8" selected>8</option><option value="12">12</option><option value="18">18</option></select>
+            </label>
+          </div>
 
-      <div style="display:flex; justify-content:space-between; margin-top:10px; align-items:center;">
-        <div id="stats" class="small muted">Replans: 0 · Path len: 0 · Nodes: 0 · Last plan: 0.000s</div>
-        <div class="small hint">Tip: Left-click = start, Right-click = goal. Regenerate city for new map.</div>
-      </div>
-    </div>
-
-    <div class="sidebar">
-      <div class="panel">
-        <div style="font-weight:700; margin-bottom:8px">City Generator</div>
-        <div class="small muted">This generator creates a grid of roads and blocks (buildings, parks, water). Each reset produces a new random city layout — good for testing replanning in many scenarios.</div>
-        <div style="margin-top:8px" class="small">
-          Road spacing and park/water placement are randomized. Obstacles (red blocks) move on roads.
-        </div>
-      </div>
-
-      <div class="panel">
-        <div style="font-weight:700; margin-bottom:8px">Planner & Config</div>
-        <div class="small">Planner: A* (Manhattan)</div>
-        <div class="small">Replanning: If next step is blocked by a moving obstacle, replan from current position.</div>
-        <div style="margin-top:8px" class="ui-row">
-          <div class="small muted">Grid W × H</div>
-          <div style="display:flex;gap:6px">
-            <input id="inputCols" type="number" value="30" min="12" max="80" style="width:70px;padding:6px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:var(--muted)"/>
-            <input id="inputRows" type="number" value="20" min="8" max="60" style="width:70px;padding:6px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:var(--muted)"/>
-            <button id="applyGrid" style="padding:6px 8px">Apply</button>
+          <div class="status" style="gap:8px">
+            <div class="small">Speed</div>
+            <input id="speedRange" type="range" min="1" max="30" value="10" />
           </div>
         </div>
-      </div>
 
-      <div class="panel">
-        <div style="font-weight:700; margin-bottom:8px">How to use in your report</div>
-        <ol style="padding-left:16px;font-size:13px;color:var(--muted);margin:6px 0">
-          <li>Explain A* pseudocode and Manhattan heuristic.</li>
-          <li>Explain city generator (how roads vs blocks are produced).</li>
-          <li>Show screenshots: initial plan, blocked path, replanning result.</li>
-          <li>Report metrics: replans, nodes expanded, planning time across maps.</li>
-        </ol>
-      </div>
+        <div style="position:relative; display:flex; justify-content:center; align-items:center;">
+          <canvas id="gridCanvas" width="720" height="480" aria-label="Grid world canvas"></canvas>
+          <!-- subtle overlay for futuristic vibe -->
+          <canvas id="overlay" width="720" height="480"></canvas>
+        </div>
 
-      <div class="panel footer">
-        <div style="font-weight:700">Next steps (I can help)</div>
-        <div class="small muted">• Add CSV logging to download results<br>• Implement D* Lite for incremental planning<br>• Add vehicle kinematics (turning radius)</div>
-      </div>
-    </div>
+        <div class="info" id="infoPanel" aria-live="polite">
+          <div class="section">
+            <span class="tag">Model</span>
+            <strong>Dynamic A* Replanning on Random City Map</strong>
+            <p>Map: procedurally generated roads/buildings/parks/water. Vehicle: point-car moving cell-to-cell. Planner: A* (Manhattan). When the next cell is blocked by a moving obstacle, the system replans from the current position.</p>
+          </div>
+
+          <div class="section">
+            <span class="tag">How to use</span>
+            <ol>
+              <li>Click <strong>REGEN CITY</strong> to make a new map.</li>
+              <li>Left-click any road cell to set <strong>START</strong>. Right-click any road cell to set <strong>GOAL</strong>.</li>
+              <li>Click <strong>START</strong> to run; <strong>STEP</strong> advances one tick; <strong>PAUSE</strong> stops the simulation.</li>
+            </ol>
+          </div>
+
+          <div class="section">
+            <span class="tag">Pseudocode</span>
+            <pre>
+Main Loop:
+  while not reached_goal:
+    move_dynamic_obstacles()
+    update_occupancy()
+    if path is null or next_cell_blocked:
+      path = A_STAR(current_pos, goal, grid)
+      if path found: replans++
+    if path exists:
+      move to next cell on path
+    else:
+      wait (obstacles may move away)
+            </pre>
+          </div>
+
+          <div class="section">
+            <span class="tag">What to include in report</span>
+            <ul>
+              <li>Algorithm description (A*, heuristic, complexity).</li>
+              <li>Replanning strategy and its limitations.</li>
+              <li>Experiment: vary obstacle density (4,8,12,18) and record replans, nodes expanded, planning time.</li>
+              <li>Screenshots: initial path, blocked path, replanned path.</li>
+            </ul>
+          </div>
+
+          <div class="section">
+            <span class="tag">Extensions</span>
+            <p>You can ask me to add CSV logging, a D* Lite incremental planner for performance comparison, or a smoothed path (spline) and kinematic model (bicycle model).</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>Made for DA&amp;A — 5th Sem demo • Click on the map area to set start/goal • Right-click sets goal</footer>
   </div>
 
 <script>
-/* City Path Planning — upgraded:
-   - Random city map generator (roads/blocks/parks/water)
-   - Car-shaped vehicle drawn and rotated to face movement
-   - A* + replanning as before
-   Copy-paste -> save as index.html -> open in browser
+/* Single-file demo behavior (clean + robust)
+   - City generator, A* + replanning
+   - Centered canvas, neon styling, info panel below
 */
+(() => {
+  // DOM
+  const canvas = document.getElementById('gridCanvas');
+  const ctx = canvas.getContext('2d');
+  const overlay = document.getElementById('overlay');
+  const octx = overlay.getContext('2d');
 
-/* ----------------- Config/State ----------------- */
-const canvas = document.getElementById('gridCanvas');
-const ctx = canvas.getContext('2d');
-const miniCar = document.getElementById('miniCar').getContext('2d');
-const gridInfo = document.getElementById('gridInfo');
-const tickSpan = document.getElementById('tick');
-const statsDiv = document.getElementById('stats');
-const replanSpan = document.getElementById('replans');
+  const tickPill = document.getElementById('tickPill');
+  const replanPill = document.getElementById('replanPill');
+  const nodesPill = document.getElementById('nodesPill');
+  const statsText = document.getElementById('infoPanel');
 
-const startBtn = document.getElementById('startBtn');
-const pauseBtn = document.getElementById('pauseBtn');
-const stepBtn = document.getElementById('stepBtn');
-const resetBtn = document.getElementById('resetBtn');
-const regenBtn = document.getElementById('regenBtn');
-const obsCountSelect = document.getElementById('obsCount');
-const speedRange = document.getElementById('speedRange');
-const inputCols = document.getElementById('inputCols');
-const inputRows = document.getElementById('inputRows');
-const applyGrid = document.getElementById('applyGrid');
+  const startBtn = document.getElementById('startBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const stepBtn = document.getElementById('stepBtn');
+  const regenBtn = document.getElementById('regenBtn');
+  const obsCount = document.getElementById('obsCount');
+  const speedRange = document.getElementById('speedRange');
 
-const CANVAS_W = canvas.width, CANVAS_H = canvas.height;
+  // Config
+  let COLS = 30, ROWS = 20;
+  const CANVAS_W = canvas.width, CANVAS_H = canvas.height;
+  let CELL_W = Math.floor(CANVAS_W / COLS), CELL_H = Math.floor(CANVAS_H / ROWS);
 
-let COLS = parseInt(inputCols.value) || 30;
-let ROWS = parseInt(inputRows.value) || 20;
-let CELL_W = Math.floor(CANVAS_W / COLS), CELL_H = Math.floor(CANVAS_H / ROWS);
+  // state
+  let baseGrid = []; // 0 road, 1 building, 3 park, 4 water
+  let grid = []; // base + dynamic obstacles (2)
+  let obstacles = [];
+  let start = {r:0,c:0}, goal = {r:ROWS-1,c:COLS-1}, vehicle = {r:0,c:0};
+  let path = null; let stepIndex = 1;
+  let running = false, tick = 0, replans = 0, nodesLast = 0, lastTime = 0;
+  let timer = null;
 
-let baseGrid = []; // 0 road/free, 1 building, 3 park, 4 water
-let grid = [];     // baseGrid + dynamic obstacles (2)
-let obstacles = []; // moving obstacles on roads
-let start = {r:0,c:0}, goal = {r: ROWS-1, c: COLS-1}, vehicle = {r:0,c:0};
-let path = [], stepIndex = 1;
-let running = false;
-let tick = 0, replanCount = 0, nodesExpandedLast = 0, lastPlanTime = 0;
-let TICK_INTERVAL_MS = 100;
-let animationTimer = null;
+  function randInt(a,b){ return Math.floor(a + Math.random()*(b-a+1)); }
+  function shuffle(a){ for (let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } }
+  function inBounds(r,c){ return r>=0 && r<ROWS && c>=0 && c<COLS; }
 
-/* ----------------- Utility ----------------- */
-function randInt(a,b){ return Math.floor(a + Math.random()*(b-a+1)); }
-function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } }
-function inBounds(r,c){ return r>=0 && r<ROWS && c>=0 && c<COLS; }
-
-/* ----------------- City Generator -----------------
-   Approach:
-   - Choose random horizontal and vertical roads by selecting spacing bands.
-   - Mark cells along roads as free (0).
-   - Remaining cells are blocks (buildings 1); randomly pick some blocks to be parks (3) or water (4).
-*/
-function generateCity(){
-  baseGrid = Array.from({length:ROWS}, () => Array.from({length:COLS}, () => 1)); // default building
-
-  // choose road lines: pick offsets with variable spacing
-  let hRoads = [0], vRoads = [0];
-  // generate horizontal roads
-  let pos = randInt(2,4);
-  while(pos < ROWS - 2){
-    hRoads.push(pos);
-    pos += randInt(3,6);
-  }
-  hRoads.push(ROWS-1);
-  // vertical
-  pos = randInt(3,6);
-  while(pos < COLS - 2){
-    vRoads.push(pos);
-    pos += randInt(3,7);
-  }
-  vRoads.push(COLS-1);
-
-  // make the roads thicker (2-3 cells)
-  for (const hr of hRoads){
-    const thickness = (Math.random()<0.6) ? 2 : 1;
-    for (let t=0;t<thickness;t++){
-      const r = Math.min(ROWS-1, hr + (t - Math.floor(thickness/2)));
-      for (let c=0;c<COLS;c++) baseGrid[r][c] = 0;
-    }
-  }
-  for (const vc of vRoads){
-    const thickness = (Math.random()<0.6) ? 2 : 1;
-    for (let t=0;t<thickness;t++){
-      const c = Math.min(COLS-1, vc + (t - Math.floor(thickness/2)));
-      for (let r=0;r<ROWS;r++) baseGrid[r][c] = 0;
-    }
-  }
-
-  // Create intersections: ensure connectivity (already by roads)
-  // Mark some building blocks as parks or water
-  const blocks = [];
-  for (let r=0;r<ROWS;r++){
-    for (let c=0;c<COLS;c++){
-      if (baseGrid[r][c] === 1) blocks.push([r,c]);
-    }
-  }
-  shuffle(blocks);
-  // choose ~6% as parks, 3% as water depending on grid size
-  const parkCount = Math.max(1, Math.floor(blocks.length * 0.06));
-  const waterCount = Math.max(1, Math.floor(blocks.length * 0.03));
-  for (let i=0;i<parkCount;i++){
-    const [r,c] = blocks[i];
-    baseGrid[r][c] = 3;
-  }
-  for (let i=parkCount;i<parkCount+waterCount;i++){
-    const [r,c] = blocks[i];
-    baseGrid[r][c] = 4;
-  }
-
-  // carve a few alleyways (random roads in blocks)
-  for (let i=0;i<Math.floor((ROWS*COLS)*0.01);i++){
-    const r = randInt(1,ROWS-2), c = randInt(1,COLS-2);
-    baseGrid[r][c] = 0; // small alley
-  }
-}
-
-/* ----------------- Obstacles ----------------- */
-class Obstacle {
-  constructor(r,c, pattern='line'){
-    this.r = r; this.c = c; this.pattern = pattern;
-    const dirs = [{dr:1,dc:0},{dr:-1,dc:0},{dr:0,dc:1},{dr:0,dc:-1}];
-    this.dir = dirs[Math.floor(Math.random()*dirs.length)];
-  }
-  step(){
-    if (this.pattern === 'random'){
-      const choices = [{dr:0,dc:0},{dr:1,dc:0},{dr:-1,dc:0},{dr:0,dc:1},{dr:0,dc:-1}];
-      const pick = choices[randInt(0,choices.length-1)];
-      const nr = this.r + pick.dr, nc = this.c + pick.dc;
-      if (inBounds(nr,nc) && baseGrid[nr][nc] === 0 && !(nr===start.r&&nc===start.c) && !(nr===goal.r&&nc===goal.c)) {
-        this.r = nr; this.c = nc;
+  // City generator
+  function generateCity(){
+    baseGrid = Array.from({length:ROWS}, ()=>Array.from({length:COLS}, ()=>1));
+    // horizontal roads
+    let r = randInt(1,3);
+    while(r < ROWS-1){
+      const thick = Math.random()<0.6?2:1;
+      for(let t=0;t<thick && r+t<ROWS;t++){
+        for(let c=0;c<COLS;c++) baseGrid[r+t][c]=0;
       }
-    } else {
-      const nr = this.r + this.dir.dr, nc = this.c + this.dir.dc;
-      if (!inBounds(nr,nc) || baseGrid[nr][nc] !== 0 || (nr===start.r&&nc===start.c) || (nr===goal.r&&nc===goal.c)) {
-        this.dir.dr *= -1; this.dir.dc *= -1;
-        const nr2 = this.r + this.dir.dr, nc2 = this.c + this.dir.dc;
-        if (inBounds(nr2,nc2) && baseGrid[nr2][nc2] === 0) { this.r = nr2; this.c = nc2; }
-      } else { this.r = nr; this.c = nc; }
+      r += randInt(3,6);
     }
-  }
-}
-
-/* ----------------- Grid & A* ----------------- */
-function updateGridWithObstacles(){
-  grid = baseGrid.map(row => row.slice());
-  for (const o of obstacles) {
-    if (inBounds(o.r,o.c)) grid[o.r][o.c] = 2; // dynamic obstacle
-  }
-}
-
-function aStar(startNode, goalNode, gridState) {
-  const t0 = performance.now();
-  const h = (a,b) => Math.abs(a.r-b.r) + Math.abs(a.c-b.c);
-  const neighbors = [{dr:1,dc:0},{dr:-1,dc:0},{dr:0,dc:1},{dr:0,dc:-1}];
-  const rows = gridState.length, cols = gridState[0].length;
-  const key = n => `${n.r},${n.c}`;
-
-  const open = new TinyPQ((a,b)=>a.f - b.f);
-  const gScore = new Map(), fScore = new Map(), came = new Map();
-  gScore.set(key(startNode), 0);
-  fScore.set(key(startNode), h(startNode, goalNode));
-  open.push({node:startNode, f:fScore.get(key(startNode))});
-  let nodes = 0;
-
-  while(open.size()){
-    const cur = open.pop().node;
-    nodes++;
-    if (cur.r === goalNode.r && cur.c === goalNode.c){
-      // reconstruct
-      const p = [];
-      let ck = key(cur); p.push(cur);
-      while(came.has(ck)){
-        const prev = came.get(ck); p.push(prev); ck = key(prev);
+    // vertical roads
+    let c = randInt(2,4);
+    while(c < COLS-1){
+      const thick = Math.random()<0.6?2:1;
+      for(let t=0;t<thick && c+t<COLS;t++){
+        for(let rr=0; rr<ROWS; rr++) baseGrid[rr][c+t]=0;
       }
-      p.reverse();
-      const dt = (performance.now() - t0)/1000;
-      return {path: p, nodes, time: dt};
+      c += randInt(3,7);
     }
-    for (const nb of neighbors){
-      const nr = cur.r + nb.dr, nc = cur.c + nb.dc;
-      if (!inBounds(nr,nc)) continue;
-      // only travel on roads (0) or goal/start if they are on non-road is allowed?
-      if (gridState[nr][nc] !== 0 && !(nr===goalNode.r && nc===goalNode.c)) continue;
-      const neighbor = {r:nr,c:nc};
-      const tentative = (gScore.get(key(cur)) ?? 1e9) + 1;
-      if (tentative < (gScore.get(key(neighbor)) ?? 1e9)){
-        came.set(key(neighbor), cur);
-        gScore.set(key(neighbor), tentative);
-        const fval = tentative + h(neighbor, goalNode);
-        fScore.set(key(neighbor), fval);
-        open.push({node:neighbor, f:fval});
-      }
-    }
-  }
-  const dt = (performance.now() - t0)/1000;
-  return {path:null, nodes, time:dt};
-}
-
-// tiny priority queue
-function TinyPQ(cmp){ this.data=[]; this.cmp=cmp||((a,b)=>a-b); }
-TinyPQ.prototype.size = function(){ return this.data.length; };
-TinyPQ.prototype.push = function(val){
-  this.data.push(val); let i=this.data.length-1;
-  while(i>0){ const p=Math.floor((i-1)/2); if (this.cmp(this.data[i], this.data[p])>=0) break; [this.data[i],this.data[p]]=[this.data[p],this.data[i]]; i=p; }
-};
-TinyPQ.prototype.pop = function(){
-  const top = this.data[0]; const last = this.data.pop();
-  if (this.data.length>0){ this.data[0]=last; let i=0; while(true){ const l=2*i+1, r=2*i+2; let s=i; if (l<this.data.length && this.cmp(this.data[l],this.data[s])<0) s=l; if (r<this.data.length && this.cmp(this.data[r],this.data[s])<0) s=r; if (s===i) break; [this.data[i],this.data[s]]=[this.data[s],this.data[i]]; i=s; } }
-  return top;
-};
-
-/* ----------------- Drawing ----------------- */
-function drawMiniCar(){
-  const c = miniCar;
-  c.clearRect(0,0,42,18);
-  // body
-  c.fillStyle = '#ffd166'; c.strokeStyle = '#d9a84a';
-  c.beginPath(); c.roundRect(2,2,30,14,3); c.fill(); c.stroke();
-  // roof
-  c.fillStyle = '#ff7b7b'; c.beginPath(); c.roundRect(8,1,12,8,2); c.fill();
-  // wheels
-  c.fillStyle = '#333'; c.fillRect(4,13,6,3); c.fillRect(22,13,6,3);
-}
-CanvasRenderingContext2D.prototype.roundRect = function(x,y,w,h,r){ if (r===undefined) r=4; this.moveTo(x+r,y); this.arcTo(x+w,y,x+w,y+h,r); this.arcTo(x+w,y+h,x,y+h,r); this.arcTo(x,y+h,x,y,r); this.arcTo(x,y,x+w,y,r); this.closePath(); }
-
-/* draw cell types:
- - 0 road (dark)
- - 1 building (tile)
- - 2 dynamic obstacle (moving)
- - 3 park (green)
- - 4 water (blue)
-*/
-function draw(){
-  ctx.clearRect(0,0,CANVAS_W,CANVAS_H);
-  CELL_W = Math.floor(CANVAS_W / COLS);
-  CELL_H = Math.floor(CANVAS_H / ROWS);
-
-  // draw base grid
-  for (let r=0;r<ROWS;r++){
-    for (let c=0;c<COLS;c++){
-      const x = c*CELL_W, y = r*CELL_H;
-      const t = baseGrid[r][c];
-      if (t === 0){ // road
-        ctx.fillStyle = '#17202a';
-        ctx.fillRect(x,y,CELL_W,CELL_H);
-        // lane divider (thin)
-        if ((r+c) % 6 === 0){
-          ctx.fillStyle = '#0f2733';
-          ctx.fillRect(x+Math.floor(CELL_W*0.25), y+Math.floor(CELL_H*0.45), Math.max(1,Math.floor(CELL_W*0.5)), Math.max(1,Math.floor(CELL_H*0.08)));
-        }
-      } else if (t === 1){ // building
-        ctx.fillStyle = '#0f1b22';
-        ctx.fillRect(x,y,CELL_W,CELL_H);
-        // windows pattern
-        ctx.fillStyle = '#0b2a3a';
-        for (let i=0;i<2;i++){
-          for (let j=0;j<2;j++){
-            const wx = x + 4 + j*(Math.max(6,CELL_W-12)/2);
-            const wy = y + 4 + i*(Math.max(6,CELL_H-12)/2);
-            ctx.fillRect(wx, wy, Math.max(3,Math.floor(CELL_W*0.2)), Math.max(3,Math.floor(CELL_H*0.18)));
-          }
-        }
-      } else if (t === 3){ // park
-        ctx.fillStyle = '#0f3d2b';
-        ctx.fillRect(x,y,CELL_W,CELL_H);
-        // trees
-        if (Math.random() < 0.12){
-          ctx.fillStyle = '#1db65a';
-          ctx.beginPath(); ctx.arc(x+CELL_W*0.3,y+CELL_H*0.3, Math.max(2,Math.min(CELL_W,CELL_H)*0.12),0,Math.PI*2); ctx.fill();
-        }
-      } else if (t === 4){ // water
-        ctx.fillStyle = '#052b3d';
-        ctx.fillRect(x,y,CELL_W,CELL_H);
-        // ripple
-        ctx.fillStyle = '#063a55';
-        ctx.fillRect(x+2,y+2,Math.max(3,CELL_W-4),Math.max(3,CELL_H-4));
-      }
-    }
-  }
-
-  // path draw (slightly offset squares)
-  if (path && path.length){
-    ctx.fillStyle = 'rgba(122,174,255,0.9)';
-    for (const p of path){
-      const px = p.c*CELL_W + Math.floor(CELL_W*0.18);
-      const py = p.r*CELL_H + Math.floor(CELL_H*0.18);
-      ctx.fillRect(px, py, Math.max(3,Math.floor(CELL_W*0.64)), Math.max(3,Math.floor(CELL_H*0.64)));
-    }
+    // parks/water
+    const blocks=[];
+    for(let rr=0; rr<ROWS; rr++) for(let cc=0; cc<COLS; cc++) if(baseGrid[rr][cc]===1) blocks.push([rr,cc]);
+    shuffle(blocks);
+    const parks = Math.max(1, Math.floor(blocks.length*0.06));
+    const waters = Math.max(1, Math.floor(blocks.length*0.03));
+    for(let i=0;i<parks;i++){ const [rr,cc]=blocks[i]; baseGrid[rr][cc]=3; }
+    for(let i=parks;i<parks+waters;i++){ const [rr,cc]=blocks[i]; baseGrid[rr][cc]=4; }
+    // alleys
+    for(let i=0;i<Math.floor((ROWS*COLS)*0.01);i++){ baseGrid[randInt(1,ROWS-2)][randInt(1,COLS-2)] = 0; }
   }
 
   // obstacles
-  for (const ob of obstacles){
-    const x = ob.c*CELL_W, y = ob.r*CELL_H;
-    ctx.fillStyle = '#ff6b6b';
-    ctx.fillRect(x+2,y+2, Math.max(6,CELL_W-4), Math.max(6,CELL_H-4));
-    // small indicator
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(x + Math.floor(CELL_W*0.6), y + Math.floor(CELL_H*0.18), Math.max(2,Math.floor(CELL_W*0.14)), Math.max(2,Math.floor(CELL_H*0.14)));
-  }
-
-  // start & goal
-  ctx.fillStyle = '#ffd166';
-  ctx.fillRect(start.c*CELL_W+3, start.r*CELL_H+3, Math.max(8,CELL_W-6), Math.max(8,CELL_H-6));
-  ctx.fillStyle = '#ffd86b';
-  ctx.fillRect(goal.c*CELL_W+3, goal.r*CELL_H+3, Math.max(8,CELL_W-6), Math.max(8,CELL_H-6));
-
-  // vehicle (draw car rotated by direction)
-  drawCar(vehicle.r, vehicle.c);
-
-  // stats
-  statsDiv.textContent = `Replans: ${replanCount} · Path len: ${path?path.length:0} · Nodes: ${nodesExpandedLast} · Last plan: ${lastPlanTime.toFixed(3)}s`;
-  replanSpan.textContent = replanCount;
-  gridInfo.textContent = `${COLS} × ${ROWS}`;
-  tickSpan.textContent = tick;
-}
-
-function drawCar(r,c){
-  const cx = c*CELL_W + CELL_W/2;
-  const cy = r*CELL_H + CELL_H/2;
-  // compute orientation using previous step if possible
-  let angle = 0;
-  if (path && path.length && stepIndex > 1){
-    const prev = path[Math.max(0, stepIndex-2)];
-    if (prev){
-      const dr = (path[Math.min(stepIndex-1, path.length-1)].r - prev.r);
-      const dc = (path[Math.min(stepIndex-1, path.length-1)].c - prev.c);
-      angle = Math.atan2(dr, dc); // note: y axis downward
-    }
-  }
-  // draw rotated car
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(angle);
-  // body
-  const w = Math.max(10, Math.min(CELL_W, CELL_H) * 0.9);
-  const h = Math.max(6, Math.min(CELL_W, CELL_H) * 0.5);
-  // shadow
-  ctx.fillStyle = 'rgba(0,0,0,0.25)';
-  ctx.fillRect(-w/2+2, -h/2+6, w-4, h-2);
-  // main body
-  ctx.fillStyle = '#ffd166';
-  roundRect(ctx, -w/2, -h/2, w, h, Math.max(3, h*0.25));
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(0,0,0,0.15)';
-  ctx.stroke();
-  // top/roof
-  ctx.fillStyle = '#ff7b7b';
-  roundRect(ctx, -w*0.22, -h*0.8, w*0.44, h*0.9, 2);
-  ctx.fill();
-  // windows (glass)
-  ctx.fillStyle = 'rgba(255,255,255,0.12)';
-  ctx.fillRect(-w*0.12, -h*0.6, w*0.24, h*0.5);
-  // wheels
-  ctx.fillStyle = '#222';
-  const wheelW = Math.max(3, h*0.25);
-  ctx.fillRect(-w*0.4, -h*0.55, wheelW, wheelW);
-  ctx.fillRect(w*0.2, -h*0.55, wheelW, wheelW);
-  ctx.fillRect(-w*0.4, h*0.25, wheelW, wheelW);
-  ctx.fillRect(w*0.2, h*0.25, wheelW, wheelW);
-  ctx.restore();
-}
-function roundRect(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
-
-/* ----------------- Simulation Loop ----------------- */
-function tickOnce(){
-  tick++;
-  // move obstacles
-  for (const o of obstacles) o.step();
-  updateGridWithObstacles();
-
-  // if vehicle reached goal, stop moving but still let obstacles move so you can see scenic
-  if (vehicle.r === goal.r && vehicle.c === goal.c){
-    draw();
-    return;
-  }
-
-  // check replanning
-  let needReplan = false;
-  if (!path || path.length === 0) needReplan = true;
-  else if (stepIndex >= path.length) needReplan = true;
-  else {
-    const next = path[stepIndex];
-    if (!inBounds(next.r,next.c) || grid[next.r][next.c] !== 0) needReplan = true;
-  }
-
-  if (needReplan){
-    const res = aStar({r:vehicle.r,c:vehicle.c},{r:goal.r,c:goal.c},grid);
-    lastPlanTime = res.time;
-    nodesExpandedLast = res.nodes;
-    path = res.path;
-    replanCount++;
-    stepIndex = 1;
-  }
-
-  // move one step
-  if (path && path.length > 1 && stepIndex < path.length){
-    vehicle.r = path[stepIndex].r;
-    vehicle.c = path[stepIndex].c;
-    stepIndex++;
-  }
-
-  // collision check
-  if (grid[vehicle.r][vehicle.c] !== 0 && !(vehicle.r===goal.r && vehicle.c===goal.c)){
-    console.error('Collision at', vehicle);
-    running = false;
-  }
-  draw();
-}
-
-/* animation */
-function runLoop(){
-  if (!running) return;
-  tickOnce();
-  animationTimer = setTimeout(runLoop, TICK_INTERVAL_MS);
-}
-
-/* ----------------- UI & Events ----------------- */
-startBtn.addEventListener('click', ()=>{
-  if (!running){ running = true; runLoop(); }
-});
-pauseBtn.addEventListener('click', ()=>{
-  running = false; if (animationTimer) clearTimeout(animationTimer);
-});
-stepBtn.addEventListener('click', ()=>{ tickOnce(); });
-resetBtn.addEventListener('click', ()=>{ init(); });
-regenBtn.addEventListener('click', ()=>{ regenerateCityAndReset(); });
-
-speedRange.addEventListener('input', ()=>{
-  const v = parseInt(speedRange.value);
-  TICK_INTERVAL_MS = Math.max(20, Math.round(380 - (v/30)*360));
-});
-
-canvas.addEventListener('contextmenu', e => e.preventDefault());
-canvas.addEventListener('pointerdown', e => {
-  const rect = canvas.getBoundingClientRect();
-  const x = e.clientX - rect.left, y = e.clientY - rect.top;
-  const c = Math.floor(x / CELL_W), r = Math.floor(y / CELL_H);
-  if (!inBounds(r,c)) return;
-  if (e.button === 0){ // left click -> start
-    if (baseGrid[r][c] === 0 || baseGrid[r][c] === 3 || baseGrid[r][c] === 4){
-      start = {r,c}; vehicle = {r,c};
-      updateGridWithObstacles();
-      const res = aStar({r:vehicle.r,c:vehicle.c},{r:goal.r,c:goal.c},grid);
-      path = res.path; nodesExpandedLast=res.nodes; lastPlanTime=res.time; replanCount++;
-      stepIndex = 1;
-      draw();
-    }
-  } else if (e.button === 2){ // right click -> goal
-    if (baseGrid[r][c] === 0 || baseGrid[r][c] === 3 || baseGrid[r][c] === 4){
-      goal = {r,c};
-      updateGridWithObstacles();
-      const res = aStar({r:vehicle.r,c:vehicle.c},{r:goal.r,c:goal.c},grid);
-      path = res.path; nodesExpandedLast=res.nodes; lastPlanTime=res.time; replanCount++;
-      stepIndex = 1;
-      draw();
-    }
-  }
-});
-
-applyGrid.addEventListener('click', ()=>{
-  const newCols = Math.max(12, Math.min(80, parseInt(inputCols.value)||COLS));
-  const newRows = Math.max(8, Math.min(60, parseInt(inputRows.value)||ROWS));
-  COLS = newCols; ROWS = newRows;
-  CELL_W = Math.floor(CANVAS_W / COLS); CELL_H = Math.floor(CANVAS_H / ROWS);
-  start = {r:0,c:0}; goal = {r:ROWS-1,c:COLS-1}; vehicle = {r:0,c:0};
-  init();
-});
-
-/* ----------------- Setup helpers ----------------- */
-function buildObstacles(n){
-  obstacles = [];
-  const free = [];
-  for (let r=0;r<ROWS;r++){
-    for (let c=0;c<COLS;c++){
-      if (baseGrid[r][c] === 0 && !(r===start.r&&c===start.c) && !(r===goal.r&&c===goal.c)){
-        free.push({r,c});
+  class Ob {
+    constructor(r,c,pattern='line'){ this.r=r; this.c=c; this.pattern=pattern; const dirs=[{dr:1,dc:0},{dr:-1,dc:0},{dr:0,dc:1},{dr:0,dc:-1}]; this.dir = dirs[randInt(0,dirs.length-1)]; }
+    step(){
+      if(this.pattern==='random'){
+        const choices=[{dr:0,dc:0},{dr:1,dc:0},{dr:-1,dc:0},{dr:0,dc:1},{dr:0,dc:-1}];
+        const p = choices[randInt(0,choices.length-1)];
+        const nr=this.r+p.dr, nc=this.c+p.dc;
+        if(inBounds(nr,nc) && baseGrid[nr][nc]===0 && !(nr===vehicle.r && nc===vehicle.c) && !(nr===start.r&&nc===start.c) && !(nr===goal.r&&nc===goal.c)) { this.r=nr; this.c=nc; }
+      } else {
+        const nr=this.r+this.dir.dr, nc=this.c+this.dir.dc;
+        if(!inBounds(nr,nc) || baseGrid[nr][nc]!==0 || (nr===vehicle.r&&nc===vehicle.c) || (nr===start.r&&nc===start.c) || (nr===goal.r&&nc===goal.c)) {
+          this.dir.dr *= -1; this.dir.dc *= -1;
+          const nr2=this.r+this.dir.dr, nc2=this.c+this.dir.dc;
+          if(inBounds(nr2,nc2) && baseGrid[nr2][nc2]===0 && !(nr2===vehicle.r&&nc2===vehicle.c)) { this.r=nr2; this.c=nc2; }
+        } else { this.r=nr; this.c=nc; }
       }
     }
   }
-  shuffle(free);
-  for (let i=0;i<n && i<free.length;i++){
-    const p = free[i];
-    const pattern = (i%2===0)?'line':'random';
-    obstacles.push(new Obstacle(p.r,p.c,pattern));
+
+  function placeObstacles(n){
+    obstacles=[];
+    const free=[];
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(baseGrid[r][c]===0 && !(r===start.r&&c===start.c) && !(r===goal.r&&c===goal.c)) free.push([r,c]);
+    shuffle(free);
+    for(let i=0;i<n && i<free.length;i++){ const [r,c]=free[i]; const pattern=(i%2===0)?'line':'random'; obstacles.push(new Ob(r,c,pattern)); }
   }
-}
 
-/* regenerate city and reset vehicle */
-function regenerateCityAndReset(){
-  running = false; if (animationTimer) clearTimeout(animationTimer);
-  generateCity();
-  start = {r:0,c:0}; goal = {r:ROWS-1,c:COLS-1}; vehicle = {r:0,c:0};
-  const n = parseInt(obsCountSelect.value);
-  buildObstacles(n);
-  updateGridWithObstacles();
-  const res = aStar({r:vehicle.r,c:vehicle.c},{r:goal.r,c:goal.c},grid);
-  path = res.path; nodesExpandedLast=res.nodes; lastPlanTime=res.time;
-  replanCount = 1; stepIndex = 1; tick = 0;
-  draw();
-}
+  function updateGridWithObstacles(){
+    grid = baseGrid.map(row => row.slice());
+    for(const o of obstacles) if(inBounds(o.r,o.c)) grid[o.r][o.c] = 2;
+  }
 
-/* init */
-function init(){
-  tick = 0; replanCount = 0; nodesExpandedLast = 0; lastPlanTime = 0; stepIndex = 1; path = [];
-  generateCity();
-  start = {r:0,c:0}; goal = {r:ROWS-1,c:COLS-1}; vehicle = {r:0,c:0};
-  const n = parseInt(obsCountSelect.value);
-  buildObstacles(n);
-  updateGridWithObstacles();
-  const res = aStar({r:vehicle.r,c:vehicle.c},{r:goal.r,c:goal.c},grid);
-  path = res.path; nodesExpandedLast=res.nodes; lastPlanTime=res.time;
-  replanCount++;
-  draw();
-  drawMiniCar();
-}
+  // A* implementation
+  function aStar(startNode, goalNode, gridState){
+    const t0 = performance.now();
+    const h = (a,b)=>Math.abs(a.r-b.r)+Math.abs(a.c-b.c);
+    const dirs=[{dr:1,dc:0},{dr:-1,dc:0},{dr:0,dc:1},{dr:0,dc:-1}];
+    const rows=gridState.length, cols=gridState[0].length;
+    const key = n => `${n.r},${n.c}`;
+    const heap=[]; function push(v){ heap.push(v); let i=heap.length-1; while(i>0){ const p=Math.floor((i-1)/2); if(heap[i].f>=heap[p].f) break; [heap[i],heap[p]]=[heap[p],heap[i]]; i=p; } }
+    function pop(){ const top=heap[0]; const last=heap.pop(); if(heap.length>0){ heap[0]=last; let i=0; while(true){ const l=2*i+1,r=2*i+2; let s=i; if(l<heap.length && heap[l].f < heap[s].f) s=l; if(r<heap.length && heap[r].f < heap[s].f) s=r; if(s===i) break; [heap[i],heap[s]]=[heap[s],heap[i]]; i=s; } } return top; }
+    function empty(){ return heap.length===0; }
+    const g = new Map(), came = new Map();
+    g.set(key(startNode),0); push({node:startNode, f:h(startNode,goalNode)});
+    let nodes=0;
+    while(!empty()){
+      const cur = pop().node; nodes++;
+      if(cur.r===goalNode.r && cur.c===goalNode.c){
+        const p=[]; let ck = key(cur); p.push(cur);
+        while(came.has(ck)){ const prev=came.get(ck); p.push(prev); ck = `${prev.r},${prev.c}`; }
+        p.reverse();
+        return {path: p, nodes, time:(performance.now()-t0)/1000};
+      }
+      for(const d of dirs){
+        const nr=cur.r+d.dr, nc=cur.c+d.dc;
+        if(!inBounds(nr,nc)) continue;
+        if(gridState[nr][nc] !== 0 && !(nr===goalNode.r && nc===goalNode.c)) continue;
+        const nk = `${nr},${nc}`, curk = `${cur.r},${cur.c}`;
+        const tentative = (g.get(curk) || 1e9) + 1;
+        if(tentative < (g.get(nk) || 1e9)){
+          g.set(nk, tentative);
+          came.set(nk, {r:cur.r,c:cur.c});
+          push({node:{r:nr,c:nc}, f: tentative + h({r:nr,c:nc}, goalNode)});
+        }
+      }
+    }
+    return {path:null, nodes, time:(performance.now()-t0)/1000};
+  }
 
-/* startup */
-TICK_INTERVAL_MS = Math.max(20, Math.round(380 - (parseInt(speedRange.value)/30)*360));
-init();
+  // Drawing functions
+  function drawOverlay(){
+    // faint grid lines for futuristic look
+    octx.clearRect(0,0,overlay.width,overlay.height);
+    octx.strokeStyle = 'rgba(77,208,255,0.06)';
+    octx.lineWidth = 1;
+    for(let x=0;x<=overlay.width;x+=Math.max(12, CELL_W)) { octx.beginPath(); octx.moveTo(x,0); octx.lineTo(x,overlay.height); octx.stroke(); }
+    for(let y=0;y<=overlay.height;y+=Math.max(12, CELL_H)) { octx.beginPath(); octx.moveTo(0,y); octx.lineTo(overlay.width,y); octx.stroke(); }
+  }
 
-// expose for debugging
-window.__cityplanner = { init, regenerateCityAndReset, aStar, getState: ()=>({tick,replanCount,path,vehicle}) };
+  function draw(){
+    ctx.clearRect(0,0, CANVAS_W, CANVAS_H);
+    CELL_W = Math.floor(CANVAS_W / COLS); CELL_H = Math.floor(CANVAS_H / ROWS);
+    // base grid
+    for(let r=0;r<ROWS;r++){
+      for(let c=0;c<COLS;c++){
+        const x = c*CELL_W, y = r*CELL_H, t = baseGrid[r][c];
+        if(t===0){ ctx.fillStyle = '#0f2936'; ctx.fillRect(x,y,CELL_W,CELL_H); }
+        else if(t===1){ ctx.fillStyle = '#07141b'; ctx.fillRect(x,y,CELL_W,CELL_H); }
+        else if(t===3){ ctx.fillStyle = '#073a2d'; ctx.fillRect(x,y,CELL_W,CELL_H); }
+        else if(t===4){ ctx.fillStyle = '#052733'; ctx.fillRect(x,y,CELL_W,CELL_H); }
+      }
+    }
+    // planned path
+    if(path && path.length){
+      ctx.fillStyle = 'rgba(122,174,255,0.96)';
+      for(const p of path){
+        const px = p.c*CELL_W + Math.floor(CELL_W*0.18), py = p.r*CELL_H + Math.floor(CELL_H*0.18);
+        ctx.fillRect(px, py, Math.max(3, Math.floor(CELL_W*0.64)), Math.max(3, Math.floor(CELL_H*0.64)));
+      }
+    }
+    // obstacles
+    for(const ob of obstacles){
+      ctx.fillStyle = '#ff6b6b';
+      ctx.fillRect(ob.c*CELL_W+2, ob.r*CELL_H+2, Math.max(6, CELL_W-4), Math.max(6, CELL_H-4));
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(ob.c*CELL_W + Math.floor(CELL_W*0.62), ob.r*CELL_H + Math.floor(CELL_H*0.18), Math.max(2, Math.floor(CELL_W*0.14)), Math.max(2, Math.floor(CELL_H*0.14)));
+    }
+    // start & goal
+    ctx.fillStyle = '#4dd0ff'; ctx.fillRect(start.c*CELL_W+3, start.r*CELL_H+3, Math.max(8,CELL_W-6), Math.max(8,CELL_H-6));
+    ctx.fillStyle = '#6ef6c1'; ctx.fillRect(goal.c*CELL_W+3, goal.r*CELL_H+3, Math.max(8,CELL_W-6), Math.max(8,CELL_H-6));
+    // vehicle (car)
+    drawCar(vehicle.r, vehicle.c);
+    // update pills
+    tickPill.textContent = 'Tick: ' + tick;
+    replanPill.textContent = 'Replans: ' + replans;
+    nodesPill.textContent = 'Nodes: ' + nodesLast;
+  }
+
+  function drawCar(r,c){
+    const cx = c*CELL_W + CELL_W/2, cy = r*CELL_H + CELL_H/2;
+    let angle = 0;
+    if(path && path.length && stepIndex>1){
+      const prev = path[Math.max(0, stepIndex-2)];
+      const curp = path[Math.min(stepIndex-1, path.length-1)];
+      if(prev && curp){ const dr = curp.r - prev.r, dc = curp.c - prev.c; angle = Math.atan2(dr, dc); }
+    }
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(angle);
+    const w = Math.max(10, Math.min(CELL_W, CELL_H)*0.9), h = Math.max(6, Math.min(CELL_W, CELL_H)*0.5);
+    // shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.fillRect(-w/2+2, -h/2+6, w-4, h-2);
+    // body
+    roundRect(ctx, -w/2, -h/2, w, h, Math.max(3, h*0.25)); ctx.fillStyle = '#ffd166'; ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.stroke();
+    // roof
+    roundRect(ctx, -w*0.22, -h*0.8, w*0.44, h*0.9, 2); ctx.fillStyle = '#ff7b7b'; ctx.fill();
+    // windows
+    ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(-w*0.12, -h*0.6, w*0.24, h*0.5);
+    // wheels
+    ctx.fillStyle = '#0a0a0a';
+    const ww = Math.max(3, h*0.25);
+    ctx.fillRect(-w*0.4, -h*0.55, ww, ww); ctx.fillRect(w*0.2, -h*0.55, ww, ww);
+    ctx.fillRect(-w*0.4, h*0.25, ww, ww); ctx.fillRect(w*0.2, h*0.25, ww, ww);
+    ctx.restore();
+  }
+
+  function roundRect(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+  // Simulation
+  function tickOnce(){
+    tick++;
+    // move obstacles
+    for(const o of obstacles) o.step();
+    updateGridWithObstacles();
+
+    if(vehicle.r === goal.r && vehicle.c === goal.c){
+      draw();
+      return;
+    }
+
+    let needReplan = false;
+    if(!path || path.length===0) needReplan = true;
+    else if(stepIndex >= path.length) needReplan = true;
+    else {
+      const next = path[stepIndex];
+      if(!inBounds(next.r,next.c) || grid[next.r][next.c] !== 0) needReplan = true;
+    }
+
+    if(needReplan){
+      const res = aStar({r:vehicle.r,c:vehicle.c},{r:goal.r,c:goal.c}, grid);
+      lastTime = res.time; nodesLast = res.nodes;
+      if(res.path){ path = res.path; replans++; stepIndex = 1; }
+      else { path = null; } // do not increment replans if no path
+    }
+
+    if(path && path.length>1 && stepIndex < path.length){
+      const next = path[stepIndex];
+      if(grid[next.r][next.c] === 0){
+        vehicle.r = next.r; vehicle.c = next.c; stepIndex++;
+      } else {
+        path = null; // force replan next tick
+      }
+    }
+
+    draw();
+  }
+
+  function runLoop(){
+    if(!running) return;
+    tickOnce();
+    const v = parseInt(speedRange.value);
+    const ms = Math.max(20, Math.round(380 - (v/30)*360));
+    timer = setTimeout(runLoop, ms);
+  }
+
+  // UI events
+  canvas.addEventListener('contextmenu', e=>e.preventDefault());
+  canvas.addEventListener('pointerdown', e=>{
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left, y = e.clientY - rect.top;
+    const c = Math.floor(x / CELL_W), r = Math.floor(y / CELL_H);
+    if(!inBounds(r,c)) return;
+    if(e.button === 0){ // left -> start
+      if(baseGrid[r][c]===0 || baseGrid[r][c]===3 || baseGrid[r][c]===4){
+        start = {r,c}; vehicle = {r,c};
+        updateGridWithObstacles();
+        const res = aStar({r:vehicle.r,c:vehicle.c},{r:goal.r,c:goal.c}, grid);
+        if(res.path){ path = res.path; nodesLast = res.nodes; lastTime = res.time; replans++; stepIndex=1; } else { path=null; }
+        draw();
+      }
+    } else if(e.button === 2){ // right -> goal
+      if(baseGrid[r][c]===0 || baseGrid[r][c]===3 || baseGrid[r][c]===4){
+        goal = {r,c};
+        updateGridWithObstacles();
+        const res = aStar({r:vehicle.r,c:vehicle.c},{r:goal.r,c:goal.c}, grid);
+        if(res.path){ path = res.path; nodesLast = res.nodes; lastTime = res.time; replans++; stepIndex=1; } else { path=null; }
+        draw();
+      }
+    }
+  });
+
+  startBtn.addEventListener('click', ()=>{ if(!running){ running=true; runLoop(); } });
+  pauseBtn.addEventListener('click', ()=>{ running=false; if(timer) clearTimeout(timer); });
+  stepBtn.addEventListener('click', ()=>{ tickOnce(); });
+  regenBtn.addEventListener('click', ()=>{ init(); });
+
+  // initialization helpers
+  function init(){
+    CELL_W = Math.floor(CANVAS_W / COLS); CELL_H = Math.floor(CANVAS_H / ROWS);
+    tick = 0; replans = 0; nodesLast = 0; lastTime = 0; stepIndex = 1; path = null;
+    generateCity();
+    // pick start/goal automatically on roads
+    const free=[]; for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(baseGrid[r][c]===0) free.push([r,c]);
+    shuffle(free);
+    if(free.length >= 2){ start = {r: free[0][0], c: free[0][1]}; goal = {r: free[free.length-1][0], c: free[free.length-1][1]}; vehicle = {r:start.r,c:start.c}; }
+    else { start={r:0,c:0}; goal={r:ROWS-1,c:COLS-1}; vehicle={r:0,c:0}; }
+    placeObstacles(parseInt(obsCount.value));
+    updateGridWithObstacles();
+    const res = aStar({r:vehicle.r,c:vehicle.c},{r:goal.r,c:goal.c}, grid);
+    if(res.path){ path = res.path; nodesLast=res.nodes; lastTime=res.time; replans++; stepIndex=1; }
+    drawOverlay();
+    draw();
+  }
+
+  // wire speed change to immediate effect
+  speedRange.addEventListener('input', ()=>{ if(running){ if(timer) clearTimeout(timer); runLoop(); } });
+
+  // startup
+  init();
+
+  // expose for debugging if needed
+  window.__cityPlanner = { init, aStar, getState: ()=>({tick,replans,path,vehicle}) };
+
+})();
 </script>
 </body>
 </html>
